@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as api from "../../../lib/api";
 import type { Quote, QuoteStatus } from "../../../lib/types";
 import { Empty, ErrorNote } from "../../components/ui";
+import { useAuth } from "../../auth";
 import { fmtDate, useQuotes, useSignedUrls } from "../../hooks";
 
 const STATUSES: { value: QuoteStatus; label: string }[] = [
@@ -21,11 +22,13 @@ function QuoteCard({ q }: { q: Quote }) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["quotes"] }),
   });
 
+  const { isOwner } = useAuth();
+
   return (
     <article className={`card quote ${q.status}`}>
       <div className="card-head">
         <h2>{q.name || q.email}</h2>
-        <select value={q.status} onChange={(e) => update.mutate({ status: e.target.value as QuoteStatus })}>
+        <select value={q.status} disabled={!isOwner} onChange={(e) => update.mutate({ status: e.target.value as QuoteStatus })}>
           {STATUSES.map((s) => (
             <option key={s.value} value={s.value}>
               {s.label}
@@ -58,7 +61,7 @@ function QuoteCard({ q }: { q: Quote }) {
       )}
       <label>
         Internal notes
-        <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} onBlur={() => notes !== (q.staff_notes ?? "") && update.mutate({ staff_notes: notes })} />
+        <textarea rows={2} value={notes} readOnly={!isOwner} onChange={(e) => setNotes(e.target.value)} onBlur={() => notes !== (q.staff_notes ?? "") && update.mutate({ staff_notes: notes })} />
       </label>
       <ErrorNote error={update.error} />
     </article>

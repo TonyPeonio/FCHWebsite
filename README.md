@@ -22,19 +22,24 @@ Browser ──> GitHub Pages (static files built by Vite)
 ```
 
 ### Who sees what
-| | Owner | Staff (secretary) | Client |
+| | Owner | Staff | Client |
 |---|---|---|---|
-| Master calendar, all projects, quotes | ✓ | ✓ | – |
-| Invite clients | ✓ | ✓ | – |
-| Add staff / change roles | ✓ | – | – |
+| See master calendar, all projects, quotes, files | ✓ | ✓ (view only) | – |
+| Add/change calendar events, projects, selections, files | ✓ | – | – |
+| Invite clients, add staff, change roles | ✓ | – | – |
 | Their project's schedule, selections, files | ✓ | ✓ | ✓ (own projects only) |
+| Respond to selections, upload their own photos | – | – | ✓ |
 | Staff-only events and hidden files | ✓ | ✓ | – |
+
+Staff accounts are **view-only everywhere**; the database rejects any change they attempt.
+Anyone who needs to edit (for example the secretary who keeps the calendar up to date) gets an
+owner account.
 
 Owner and staff must use an authenticator app (2FA). Without it the database treats them as a
 regular user, so a stolen email link alone can't expose client data.
 
 ### The master calendar
-The secretary works in **one calendar** (Portal → Master Calendar). Each event can be tagged to
+Whoever manages the schedule (an owner account) works in **one calendar** (Portal → Master Calendar). Staff can view it but not change it. Each event can be tagged to
 one or more projects. A client sees an event only if it's tagged to one of their projects **and**
 "Visible to clients" is checked. A shared event (e.g. one lumber truck for two sites) shows up for
 both clients, and neither can tell the other project exists. Untick "Visible to clients" for

@@ -100,7 +100,28 @@ select is((select count(*) from projects), 3::bigint, 'Staff see all projects');
 select is((select count(*) from events), 5::bigint, 'Staff see all events, including staff-only');
 select is((select count(*) from quote_requests), 1::bigint, 'Staff see quote requests');
 select is((select count(*) from documents), 4::bigint, 'Staff see all documents');
-select lives_ok($$ select decide_selection('30000000-0000-0000-0000-000000000001', true, 'Ordering it') $$, 'Staff can approve');
+-- Staff are view-only.
+select throws_ok($$ select decide_selection('30000000-0000-0000-0000-000000000001', true) $$, '42501', null,
+  'Staff cannot approve selections');
+select throws_ok($$ insert into events (title, starts_at) values ('x', now()) $$, '42501', null, 'Staff cannot add calendar events');
+update events set title = 'changed by staff';
+select is((select count(*) from events where title = 'changed by staff'), 0::bigint, 'Staff cannot edit calendar events');
+delete from events;
+select is((select count(*) from events), 5::bigint, 'Staff cannot delete calendar events');
+delete from event_projects;
+select is((select count(*) from event_projects), 8::bigint, 'Staff cannot change event project tags');
+select throws_ok($$ insert into projects (name) values ('x') $$, '42501', null, 'Staff cannot create projects');
+select throws_ok($$ insert into selections (project_id, title) values ('10000000-0000-0000-0000-000000000001', 'x') $$,
+  '42501', null, 'Staff cannot request selections');
+select throws_ok($$ insert into project_members values ('10000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-0000000000c1') $$,
+  '42501', null, 'Staff cannot add clients to projects');
+update quote_requests set status = 'declined';
+select is((select count(*) from quote_requests where status = 'declined'), 0::bigint, 'Staff cannot change quote status');
+update documents set client_visible = true;
+select is((select count(*) from documents where not client_visible), 1::bigint, 'Staff cannot change file visibility');
+select throws_ok(
+  $$ insert into storage.objects (bucket_id, name) values ('project-files', '10000000-0000-0000-0000-000000000001/docs/x.pdf') $$,
+  '42501', null, 'Staff cannot upload files');
 select throws_ok($$ select set_user_role('00000000-0000-0000-0000-0000000000c1', 'staff') $$, '42501', null,
   'Only the owner can change roles');
 select throws_ok($$ update profiles set role = 'owner' where id = auth.uid() $$, '42501', null,
@@ -108,6 +129,11 @@ select throws_ok($$ update profiles set role = 'owner' where id = auth.uid() $$,
 
 ---------------------------------------------------------------------------- Owner
 select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'aal2');
+select lives_ok($$ insert into events (title, starts_at) values ('Owner event', now()) $$, 'Owner can add calendar events');
+select lives_ok($$ update events set title = 'Framing inspection (moved)' where id = '20000000-0000-0000-0000-000000000001' $$, 'Owner can edit events');
+select is((select title from events where id = '20000000-0000-0000-0000-000000000001'), 'Framing inspection (moved)', 'Owner edit saved');
+select lives_ok($$ select decide_selection('30000000-0000-0000-0000-000000000001', true, 'Ordering it') $$, 'Owner can approve selections');
+select lives_ok($$ insert into projects (name) values ('Owner project') $$, 'Owner can create projects');
 select lives_ok($$ select set_user_role('00000000-0000-0000-0000-0000000000c3', 'staff') $$, 'Owner can change roles');
 select throws_ok($$ select set_user_role(auth.uid(), 'client') $$, 'P0001', null, 'Owner cannot demote themselves');
 

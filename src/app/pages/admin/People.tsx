@@ -71,6 +71,7 @@ export function People() {
       </div>
       <ErrorNote error={changeRole.error} />
 
+      {isOwner && (
       <form
         className="card"
         onSubmit={(e: FormEvent) => {
@@ -116,6 +117,7 @@ export function People() {
         {result && <p className="notice ok">{result}</p>}
         <ErrorNote error={invite.error} />
       </form>
+      )}
     </div>
   );
 }

@@ -1,12 +1,11 @@
-// Staff-only: invite a client (optionally to a project) or, for the owner, a staff member.
+// Owner-only: invite a client (optionally to a project) or a staff member.
 // If the person already has an account, they're just added to the project.
 import { adminClient, callerClient, callerIs, env, HttpError, isEmail, json, serve } from "../_shared/util.ts";
 
 serve(async (req) => {
   if (req.method !== "POST") throw new HttpError(405, "Method not allowed");
   const { client } = await callerClient(req);
-  if (!(await callerIs(client, "is_staff"))) throw new HttpError(403, "Only staff can invite people");
-  const isOwner = await callerIs(client, "is_owner");
+  if (!(await callerIs(client, "is_owner"))) throw new HttpError(403, "Only the owner can invite people");
 
   const body = await req.json().catch(() => ({}));
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
@@ -15,7 +14,6 @@ serve(async (req) => {
   const projectId = typeof body.projectId === "string" && body.projectId ? body.projectId : null;
 
   if (!isEmail(email)) throw new HttpError(400, "Enter a valid email");
-  if (newRole === "staff" && !isOwner) throw new HttpError(403, "Only the owner can add staff");
 
   const db = adminClient();
   if (projectId) {

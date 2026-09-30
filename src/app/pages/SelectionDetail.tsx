@@ -8,7 +8,7 @@ import { DocList, ErrorNote, FilePicker, StatusBadge } from "../components/ui";
 
 export function SelectionDetail() {
   const { id = "" } = useParams();
-  const { isStaff, session } = useAuth();
+  const { isStaff, isOwner, session } = useAuth();
   const qc = useQueryClient();
   const sel = useQuery({ queryKey: ["selection", id], queryFn: () => api.fetchSelection(id) });
   const docs = useDocuments({ selectionId: id });
@@ -133,12 +133,12 @@ export function SelectionDetail() {
           <DocList
             docs={docs.data!}
             onDelete={(d) => removeDoc.mutate(d)}
-            canDelete={(d) => isStaff || (canRespond && d.uploaded_by === session?.user.id)}
+            canDelete={(d) => isOwner || (canRespond && d.uploaded_by === session?.user.id)}
           />
         </section>
       )}
 
-      {isStaff && s.status === "submitted" && (
+      {isOwner && s.status === "submitted" && (
         <section className="card">
           <h2>Review</h2>
           <label>

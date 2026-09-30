@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as api from "../../../lib/api";
 import type { Project, ProjectStatus } from "../../../lib/types";
 import { ErrorNote, Modal, ProjectDot } from "../../components/ui";
+import { useAuth } from "../../auth";
 import { fmtDate, usePeople, useProjects, useSelections } from "../../hooks";
 
 export const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
@@ -89,6 +90,7 @@ export function Projects() {
   const selections = useSelections();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
+  const { isOwner } = useAuth();
   const [showDone, setShowDone] = useState(false);
 
   const rows = (projects.data ?? []).filter((p) => showDone || p.status !== "complete");
@@ -100,9 +102,11 @@ export function Projects() {
     <div className="page">
       <div className="title-row">
         <h1>Projects</h1>
-        <button className="btn primary" onClick={() => setCreating(true)}>
-          + New project
-        </button>
+        {isOwner && (
+          <button className="btn primary" onClick={() => setCreating(true)}>
+            + New project
+          </button>
+        )}
       </div>
       <label className="check inline">
         <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} /> Show completed

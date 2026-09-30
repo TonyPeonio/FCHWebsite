@@ -1,6 +1,7 @@
 -- Local development data only (loaded by `supabase db reset`). Never run against production.
 -- Every seeded account's password is: password123
---   owner@fch.test   (owner)      office@fch.test (staff / secretary)
+--   owner@fch.test   (owner: can change everything)
+--   office@fch.test  (staff: view-only)
 --   smith@fch.test   (client: Smith Residence)
 --   jones@fch.test   (client: Jones Remodel)
 --   lee@fch.test     (client: Lee Spec House)

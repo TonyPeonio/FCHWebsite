@@ -26,8 +26,7 @@ serve(async (req) => {
   if (!sel) throw new HttpError(404, "Selection not found");
   if (!expectedStatus[type].includes(sel.status)) throw new HttpError(409, "Selection status doesn't match");
 
-  const isStaff = await callerIs(client, "is_staff");
-  if (type !== "selection_submitted" && !isStaff) throw new HttpError(403, "Staff only");
+  if (type !== "selection_submitted" && !(await callerIs(client, "is_owner"))) throw new HttpError(403, "Owner only");
 
   const db = adminClient();
   // deno-lint-ignore no-explicit-any

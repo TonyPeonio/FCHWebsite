@@ -4,7 +4,8 @@ import * as api from "../../../lib/api";
 import { EVENT_CATEGORIES, type CalEvent, type Project } from "../../../lib/types";
 import { ScheduleCalendar } from "../../components/ScheduleCalendar";
 import { ErrorNote, Modal, ProjectDot } from "../../components/ui";
-import { allDayDate, allDayIso, byId, useEvents, useProjects } from "../../hooks";
+import { allDayDate, allDayIso, byId, fmtEventWhen, useEvents, useProjects } from "../../hooks";
+import { useAuth } from "../../auth";
 
 // <input type="datetime-local"> works in local time without a timezone suffix.
 const toLocalInput = (iso: string) => {
@@ -196,6 +197,9 @@ export function MasterCalendar() {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [showInternal, setShowInternal] = useState(true);
   const [editing, setEditing] = useState<Draft | null>(null);
+  const [viewing, setViewing] = useState<CalEvent | null>(null);
+  // Staff can view the calendar; only owners can change it.
+  const { isOwner } = useAuth();
 
   const move = useMutation({
     mutationFn: ({ ev, start, end, allDay }: { ev: CalEvent; start: Date; end: Date | null; allDay: boolean }) =>
@@ -226,9 +230,11 @@ export function MasterCalendar() {
     <div className="page wide">
       <div className="title-row">
         <h1>Master calendar</h1>
-        <button className="btn primary" onClick={() => setEditing(draftFrom(null))}>
-          + New event
-        </button>
+        {isOwner && (
+          <button className="btn primary" onClick={() => setEditing(draftFrom(null))}>
+            + New event
+          </button>
+        )}
       </div>
       <div className="chips filter">
         {projects.data?.map((p) => (
@@ -243,20 +249,37 @@ export function MasterCalendar() {
           <input type="checkbox" checked={showInternal} onChange={(e) => setShowInternal(e.target.checked)} /> Show staff-only
         </label>
       </div>
-      <p className="muted small">Click a day to add an event, click an event to edit it, or drag it to reschedule.</p>
+      <p className="muted small">
+        {isOwner
+          ? "Click a day to add an event, click an event to edit it, or drag it to reschedule."
+          : "View only. Click an event for details."}
+      </p>
 
       <ScheduleCalendar
         events={visible}
         projects={projectMap}
-        editable
+        editable={isOwner}
         showProjectNames
-        onEventClick={(ev) => setEditing(draftFrom(ev))}
-        onDateClick={(date, allDay) => setEditing(draftFrom(null, date, allDay))}
+        onEventClick={(ev) => (isOwner ? setEditing(draftFrom(ev)) : setViewing(ev))}
+        onDateClick={isOwner ? (date, allDay) => setEditing(draftFrom(null, date, allDay)) : undefined}
         onMove={(ev, start, end, allDay) => move.mutate({ ev, start, end, allDay })}
       />
       <ErrorNote error={move.error} />
 
       {editing && <EventEditor initial={editing} projects={projects.data ?? []} onClose={() => setEditing(null)} />}
+      {viewing && (
+        <Modal title={viewing.title} onClose={() => setViewing(null)}>
+          <p>
+            <strong>{fmtEventWhen(viewing)}</strong>
+          </p>
+          <p className="muted">
+            {viewing.event_projects.map((t) => projectMap[t.project_id]?.name).filter(Boolean).join(", ") || "Not tagged to a project"}
+            {viewing.category && ` · ${viewing.category}`}
+            {!viewing.client_visible && " · staff only"}
+          </p>
+          {viewing.notes && <p className="pre">{viewing.notes}</p>}
+        </Modal>
+      )}
     </div>
   );
 }

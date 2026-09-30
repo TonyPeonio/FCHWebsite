@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as api from "../../../lib/api";
 import { DOC_KIND_LABEL, type DocumentKind } from "../../../lib/types";
 import { DocList, Empty, ErrorNote, FilePicker, Modal, ProjectDot, StatusBadge } from "../../components/ui";
+import { useAuth } from "../../auth";
 import { byId, fmtDate, fmtEventWhen, upcoming, useDocuments, useEvents, usePeople, useProjects, useSelections } from "../../hooks";
 import { draftFrom, EventEditor } from "./MasterCalendar";
 import { ProjectForm, STATUS_OPTIONS } from "./Projects";
@@ -16,6 +17,7 @@ export function ProjectDetail() {
   const project = byId(projects.data)[id];
   const [tab, setTab] = useState<Tab>("overview");
   const [editing, setEditing] = useState(false);
+  const { isOwner } = useAuth();
 
   if (!project) return <div className="page">{projects.isLoading ? "Loading…" : "Project not found."}</div>;
 
@@ -28,9 +30,11 @@ export function ProjectDetail() {
         <h1>
           <ProjectDot color={project.color} /> {project.name}
         </h1>
-        <button className="btn" onClick={() => setEditing(true)}>
-          Edit
-        </button>
+        {isOwner && (
+          <button className="btn" onClick={() => setEditing(true)}>
+            Edit
+          </button>
+        )}
       </div>
       <p className="muted">
         {project.address && <>{project.address} · </>}
@@ -60,6 +64,7 @@ function Overview({ projectId }: { projectId: string }) {
   const events = useEvents();
   const projects = useProjects();
   const [adding, setAdding] = useState(false);
+  const { isOwner } = useAuth();
   const mine = (events.data ?? []).filter((e) => e.event_projects.some((t) => t.project_id === projectId));
 
   return (
@@ -67,9 +72,13 @@ function Overview({ projectId }: { projectId: string }) {
       <div className="card-head">
         <h2>Upcoming schedule</h2>
         <span>
-          <button className="btn small" onClick={() => setAdding(true)}>
-            + Add event
-          </button>{" "}
+          {isOwner && (
+            <>
+              <button className="btn small" onClick={() => setAdding(true)}>
+                + Add event
+              </button>{" "}
+            </>
+          )}
           <Link to="/admin/calendar">Master calendar →</Link>
         </span>
       </div>
@@ -95,13 +104,16 @@ function Overview({ projectId }: { projectId: string }) {
 function SelectionsTab({ projectId }: { projectId: string }) {
   const selections = useSelections(projectId);
   const [creating, setCreating] = useState(false);
+  const { isOwner } = useAuth();
   return (
     <section className="card">
       <div className="card-head">
         <h2>Selections</h2>
-        <button className="btn small primary" onClick={() => setCreating(true)}>
-          + Request a selection
-        </button>
+        {isOwner && (
+          <button className="btn small primary" onClick={() => setCreating(true)}>
+            + Request a selection
+          </button>
+        )}
       </div>
       {selections.data?.length ? (
         <ul className="rows">
@@ -202,6 +214,7 @@ function FilesTab({ projectId }: { projectId: string }) {
   const [caption, setCaption] = useState("");
   const [clientVisible, setClientVisible] = useState(true);
   const refresh = () => qc.invalidateQueries({ queryKey: ["documents"] });
+  const { isOwner } = useAuth();
 
   const upload = useMutation({
     mutationFn: async () => {
@@ -223,6 +236,7 @@ function FilesTab({ projectId }: { projectId: string }) {
 
   return (
     <>
+      {isOwner && (
       <section className="card">
         <h2>Upload</h2>
         <FilePicker files={files} onChange={setFiles} />
@@ -254,6 +268,8 @@ function FilesTab({ projectId }: { projectId: string }) {
         )}
         <ErrorNote error={upload.error ?? remove.error ?? toggle.error} />
       </section>
+      )}
+      {(docs.data?.length ?? 0) === 0 && <Empty>No photos or files yet.</Empty>}
 
       {(["photo", "plan", "permit", "contract", "selection", "other"] as DocumentKind[]).map((k) => {
         const group = (docs.data ?? []).filter((d) => d.kind === k);
@@ -261,7 +277,11 @@ function FilesTab({ projectId }: { projectId: string }) {
         return (
           <section key={k} className="card">
             <h2>{DOC_KIND_LABEL[k]}</h2>
-            <DocList docs={group} onDelete={(d) => remove.mutate(d)} onToggleVisible={(d) => toggle.mutate(d)} />
+            <DocList
+              docs={group}
+              onDelete={isOwner ? (d) => remove.mutate(d) : undefined}
+              onToggleVisible={isOwner ? (d) => toggle.mutate(d) : undefined}
+            />
           </section>
         );
       })}
@@ -275,6 +295,7 @@ function ClientsTab({ projectId }: { projectId: string }) {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [result, setResult] = useState<string | null>(null);
+  const { isOwner } = useAuth();
   const members = (people.data ?? []).filter((u) => u.project_members.some((m) => m.project_id === projectId));
 
   const invite = useMutation({
@@ -301,9 +322,11 @@ function ClientsTab({ projectId }: { projectId: string }) {
               <span>
                 {m.full_name || m.email} <small className="muted">{m.email}</small>
               </span>
-              <button className="link-btn small danger" onClick={() => confirm(`Remove ${m.email} from this project?`) && remove.mutate(m.id)}>
-                Remove
-              </button>
+              {isOwner && (
+                <button className="link-btn small danger" onClick={() => confirm(`Remove ${m.email} from this project?`) && remove.mutate(m.id)}>
+                  Remove
+                </button>
+              )}
             </li>
           ))}
         </ul>
@@ -311,6 +334,7 @@ function ClientsTab({ projectId }: { projectId: string }) {
         <Empty>No clients yet.</Empty>
       )}
 
+      {isOwner && (
       <form
         className="invite-form"
         onSubmit={(e: FormEvent) => {
@@ -336,6 +360,7 @@ function ClientsTab({ projectId }: { projectId: string }) {
         {result && <p className="notice ok">{result}</p>}
         <ErrorNote error={invite.error ?? remove.error} />
       </form>
+      )}
     </section>
   );
 }
