@@ -56,7 +56,7 @@ const openLightbox = (function lightbox() {
   };
 })();
 
-// Our Work: pick a type of build, then a project (City-YYYY-MM-DD), then see its photos.
+// Our Work: pick a type of build, then a project (City-Month-Year), then see its photos.
 // Everything comes from the portal via the public-gallery function; the section stays hidden
 // until there's something to show.
 (async function ourWork() {

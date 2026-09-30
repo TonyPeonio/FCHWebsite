@@ -126,7 +126,7 @@ $0.0213 per GB per month.
      into a project.
   2. Give the project a build type and city, then press *Mark completed*.
   3. On the project's *Photos & files* tab, press *Show on website* on the photos to show.
-  The front page lists each build type that has such photos, then projects as `City-YYYY-MM-DD`
+  The front page lists each build type that has such photos, then projects as `City-Month-Year` (e.g. `Kalama-January-2025`)
   (served by the `public-gallery` function; changes appear within a minute).
 
 ## Ideas for later

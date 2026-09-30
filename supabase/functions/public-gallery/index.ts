@@ -14,6 +14,14 @@ const CATEGORY_LABEL: Record<string, string> = {
   commercial: "Commercial",
 };
 const URL_TTL_SECONDS = 60 * 60 * 24;
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/** "Kalama-January-2025": the city, then the month and year the project was completed. */
+function projectLabel(city: string, completedOn: string | null): string {
+  if (!completedOn) return city.trim();
+  const [year, month] = completedOn.split("-"); // a plain date (YYYY-MM-DD), so no time-zone shifts
+  return `${city.trim()}-${MONTHS[Number(month) - 1]}-${year}`;
+}
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface ProjectRow {
@@ -100,7 +108,7 @@ serve(async (req) => {
         .filter((p) => p.category === key && covers.has(p.id))
         .map((p) => ({
           id: p.id,
-          label: p.completed_on ? `${p.city.trim()}-${p.completed_on}` : p.city.trim(),
+          label: projectLabel(p.city, p.completed_on),
           cover: urls[covers.get(p.id)!],
         })),
     }))
