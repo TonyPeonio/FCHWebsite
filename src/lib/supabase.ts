@@ -29,6 +29,21 @@ export const linkError: string | null =
     ? "That sign-in link has expired or was already used. Enter your email below for a new one."
     : authParams.get("error_description")?.replace(/\+/g, " ") ?? null;
 
+/**
+ * Sign-in emails link to /app/?token_hash=…&type=… (see supabase/templates) instead of straight to
+ * Supabase, so the one-time token is only spent when a person presses "Sign in". Email security
+ * scanners open links before the reader does, which used up the old links and showed "expired".
+ */
+const query = new URLSearchParams(window.location.search);
+const linkTypes = ["email", "magiclink", "invite", "signup", "recovery"] as const;
+const linkType = linkTypes.find((t) => t === query.get("type"));
+export const pendingLink = query.get("token_hash") && linkType ? { token_hash: query.get("token_hash")!, type: linkType } : null;
+
+/** Drop ?token_hash=… from the address bar once it's been used. */
+export function clearPendingLink(): void {
+  if (pendingLink) history.replaceState(null, "", window.location.pathname + window.location.hash);
+}
+
 /** Strip auth callback leftovers (#access_token=…, #error=…) so the router starts at the home page. */
 export function clearAuthHash(): void {
   if (authParams.has("access_token") || authParams.has("error") || authParams.has("error_code")) {
