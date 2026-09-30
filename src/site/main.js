@@ -50,7 +50,7 @@ document.getElementById("year").textContent = new Date().getFullYear();
   const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
   // Always handle submit ourselves so the browser never does a default submit (which would put
   // the visitor's details in the URL). Without Supabase settings, point people to email/phone.
-  if (!SUPABASE_URL || !SUPABASE_KEY) {
+  if (!SUPABASE_URL || !SUPABASE_KEY || !import.meta.env.VITE_TURNSTILE_SITE_KEY) {
     form.addEventListener("submit", (e) => {
       e.preventDefault();
       status.textContent = `Online quotes are almost ready. For now, please email us at ${EMAIL} or call (360) 673-2926.`;
