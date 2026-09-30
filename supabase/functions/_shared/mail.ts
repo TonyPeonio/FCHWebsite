@@ -4,8 +4,13 @@ export interface Mail {
   to: string | string[];
   subject: string;
   html: string;
+  /** Plain-text version; mail with one is less likely to be marked as spam. */
+  text?: string;
   replyTo?: string;
 }
+
+/** False when neither Resend nor Mailpit is set up, so sendMail would skip sending. */
+export const mailConfigured = () => Boolean(Deno.env.get("RESEND_API_KEY") || Deno.env.get("MAILPIT_URL"));
 
 /**
  * Sends email through Resend in production (RESEND_API_KEY set).
@@ -26,6 +31,7 @@ export async function sendMail(mail: Mail): Promise<void> {
         to,
         subject: mail.subject,
         html: mail.html,
+        text: mail.text,
         reply_to: mail.replyTo,
       }),
     });
@@ -45,6 +51,7 @@ export async function sendMail(mail: Mail): Promise<void> {
         ReplyTo: mail.replyTo ? [{ Email: mail.replyTo }] : [],
         Subject: mail.subject,
         HTML: mail.html,
+        Text: mail.text ?? "",
       }),
     });
     if (!res.ok) throw new Error(`Mailpit error ${res.status}: ${await res.text()}`);

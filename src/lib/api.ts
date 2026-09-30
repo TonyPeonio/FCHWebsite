@@ -231,6 +231,11 @@ export async function fetchPeople(): Promise<PersonRow[]> {
   return check(await supabase.from("profiles").select("*, project_members(project_id)").order("full_name"));
 }
 
+/** Emails a sign-in button and code (see supabase/functions/send-sign-in-email). */
+export async function sendSignInEmail(email: string) {
+  return callFunction<{ sent: true }>("send-sign-in-email", { email });
+}
+
 export async function inviteUser(input: { email: string; fullName: string; role: "client" | "staff"; projectId?: string }) {
   return callFunction<{ userId: string; invited: boolean }>("invite-user", input);
 }

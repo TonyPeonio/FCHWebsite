@@ -11,28 +11,26 @@ if (!isConfigured) {
 
 // createClient throws without a URL, which would blank the whole page; the portal shows a
 // "not set up yet" notice instead (see main.tsx), so a placeholder is never actually called.
-// Implicit flow: sign-in links carry the session in the URL hash (#access_token=…), so they work
-// in any browser. PKCE only works in the browser that requested the link, which silently failed
-// for anyone opening the email on their phone or in their mail app's built-in browser.
+// Implicit flow: links in emails Supabase sends itself (invites from the dashboard, invites sent
+// before we emailed our own) carry the session in the URL hash (#access_token=…), so they work in
+// any browser. PKCE links only worked in the browser that asked for them.
 export const supabase = createClient(url || "https://not-configured.invalid", anonKey || "not-configured", {
   auth: { flowType: "implicit", detectSessionInUrl: true, persistSession: true },
 });
-
-/** Where magic-link and invite emails send people back to. */
-export const portalUrl = `${window.location.origin}/app/`;
 
 const authParams = new URLSearchParams(window.location.hash.slice(1));
 
 /** Why the sign-in link that opened this page didn't work (expired, already used…), if it didn't. */
 export const linkError: string | null =
   authParams.get("error_code") === "otp_expired"
-    ? "That sign-in link has expired or was already used. Enter your email below for a new one."
+    ? "That sign-in link has expired or was already used. Enter your email below for a new code."
     : authParams.get("error_description")?.replace(/\+/g, " ") ?? null;
 
 /**
- * Sign-in emails link to /app/?token_hash=…&type=… (see supabase/templates) instead of straight to
- * Supabase, so the one-time token is only spent when a person presses "Sign in". Email security
- * scanners open links before the reader does, which used up the old links and showed "expired".
+ * Sign-in emails link to /app/?token_hash=…&type=… (supabase/functions/_shared/signin.ts, and
+ * supabase/templates for emails sent from the Supabase dashboard) instead of straight to Supabase,
+ * so the one-time token is only spent when a person presses "Sign in". Email security scanners
+ * open links before the reader does, which used up the old links and showed "expired".
  */
 const query = new URLSearchParams(window.location.search);
 const linkTypes = ["email", "magiclink", "invite", "signup", "recovery"] as const;

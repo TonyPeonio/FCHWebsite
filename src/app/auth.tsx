@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
-import { clearAuthHash, supabase } from "../lib/supabase";
+import { clearAuthHash, clearPendingLink, supabase } from "../lib/supabase";
 import type { Profile } from "../lib/types";
 
 interface AuthState {
@@ -38,6 +38,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // getSession waits for supabase-js to pick up any session from a sign-in link first.
     supabase.auth.getSession().then(({ data }) => {
       clearAuthHash();
+      // Already signed in, so an emailed sign-in link has nothing left to do.
+      if (data.session) clearPendingLink();
       load(data.session);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {

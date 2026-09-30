@@ -15,9 +15,10 @@ Browser ──> GitHub Pages (static files built by Vite)
    │
    └──> Supabase
           ├─ Postgres + Row Level Security   who can see what (enforced by the database)
-          ├─ Auth                            email-link and password logins
+          ├─ Auth                            emailed-code/link and password logins
           ├─ Storage                         plans, photos, selection uploads (private)
-          └─ Edge Functions                  quote emails, invites, notifications, calendar feed
+          └─ Edge Functions                  sign-in emails, invites, quote emails, notifications,
+                 │                           calendar feed
                  └──> Resend (email)
 ```
 
@@ -90,8 +91,11 @@ npm run dev                    # http://localhost:5173 (portal at /app/)
    npx supabase secrets set RESEND_API_KEY=<from Resend> TURNSTILE_SECRET=<from Cloudflare>
    ```
 3. **Resend:** add and verify the domain `firstchoicehomesllc.org` (Resend shows DNS records to add
-   in GoDaddy; they don't affect existing email). Then in Supabase *Authentication → Emails → SMTP*,
-   use Resend's SMTP settings so login emails aren't rate-limited.
+   in GoDaddy; they don't affect existing email). Sign-in and invitation emails are sent by the
+   `send-sign-in-email` and `invite-user` functions through Resend's API (`RESEND_API_KEY`), not by
+   Supabase. For emails you send from the Supabase dashboard (step 7), also set up Resend under
+   *Authentication → Emails → SMTP* and paste the files in `supabase/templates/` into
+   *Authentication → Email Templates*.
 4. **Cloudflare Turnstile:** create a free widget for `firstchoicehomesllc.org` to get a site key and secret.
 5. **Supabase Auth settings:** turn off "Allow new users to sign up"; set Site URL to
    `https://firstchoicehomesllc.org/app/` and add it under Redirect URLs.
