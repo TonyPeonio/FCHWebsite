@@ -304,7 +304,6 @@ h1, h2, h3, h4 {
   letter-spacing: .14em;
   color: #8f8f8f;
 }
-.credit-icon { width: 16px; height: 16px; color: var(--slate); flex: none; }
 .site-footer .credit a {
   color: #ddd;
   text-decoration: none;
