@@ -83,10 +83,20 @@ export async function deleteEvent(id: string) {
 const safeName = (name: string) =>
   name.normalize("NFKD").replace(/[^\w.\-]+/g, "_").replace(/_+/g, "_").slice(-100) || "file";
 
+const SHRINKABLE = ["image/jpeg", "image/png", "image/webp"];
+
+/**
+ * Shrinks big photos before upload; on any trouble, uploads the original (the bucket takes 50 MB).
+ * No web worker: the library's worker loads a script from a CDN and never reports it if the worker
+ * dies, which left phone uploads stuck on "Uploading…" forever. HEIC and other formats many
+ * browsers can't decode are sent as they are.
+ */
 async function shrinkIfImage(file: File): Promise<File> {
-  if (!file.type.startsWith("image/") || file.type === "image/gif" || file.size < 1_000_000) return file;
-  const out = await imageCompression(file, { maxSizeMB: 1.5, maxWidthOrHeight: 2400, useWebWorker: true });
-  return new File([out], file.name, { type: out.type });
+  if (!SHRINKABLE.includes(file.type) || file.size < 1_000_000) return file;
+  const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 20_000));
+  const shrunk = imageCompression(file, { maxSizeMB: 1.5, maxWidthOrHeight: 2400, useWebWorker: false }).catch(() => null);
+  const out = await Promise.race([shrunk, timeout]);
+  return out ? new File([out], file.name, { type: out.type }) : file;
 }
 
 export async function uploadToProject(

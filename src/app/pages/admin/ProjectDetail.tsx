@@ -213,13 +213,16 @@ function FilesTab({ projectId }: { projectId: string }) {
   const [kind, setKind] = useState<DocumentKind>("photo");
   const [caption, setCaption] = useState("");
   const [clientVisible, setClientVisible] = useState(true);
+  const [done, setDone] = useState(0);
   const refresh = () => qc.invalidateQueries({ queryKey: ["documents"] });
   const { isOwner } = useAuth();
 
   const upload = useMutation({
     mutationFn: async () => {
+      setDone(0);
       for (const file of files) {
         await api.uploadToProject(file, { projectId, folder: "docs", kind, caption, clientVisible });
+        setDone((n) => n + 1);
       }
     },
     onSuccess: () => {
@@ -262,7 +265,7 @@ function FilesTab({ projectId }: { projectId: string }) {
               <input type="checkbox" checked={clientVisible} onChange={(e) => setClientVisible(e.target.checked)} /> Visible to client
             </label>
             <button className="btn primary" disabled={upload.isPending} onClick={() => upload.mutate()}>
-              {upload.isPending ? "Uploading…" : `Upload ${files.length} file${files.length > 1 ? "s" : ""}`}
+              {upload.isPending ? `Uploading ${Math.min(done + 1, files.length)} of ${files.length}…` : `Upload ${files.length} file${files.length > 1 ? "s" : ""}`}
             </button>
           </>
         )}

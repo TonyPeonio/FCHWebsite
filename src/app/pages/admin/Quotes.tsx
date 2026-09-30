@@ -38,7 +38,7 @@ function QuoteCard({ q }: { q: Quote }) {
       </div>
       <p className="muted small">Received {fmtDate(q.submitted_at ?? q.created_at, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}</p>
       <p>
-        <a href={`mailto:${q.email}?subject=${encodeURIComponent("Your inquiry — First Choice Homes")}`}>{q.email}</a>
+        <a href={`mailto:${q.email}?subject=${encodeURIComponent("Your quote request — First Choice Homes")}`}>{q.email}</a>
         {q.phone && (
           <>
             {" · "}
@@ -76,14 +76,14 @@ export function Quotes() {
   return (
     <div className="page">
       <div className="title-row">
-        <h1>Website inquiries</h1>
+        <h1>Quote requests</h1>
         <select value={filter} onChange={(e) => setFilter(e.target.value as "open" | "all")}>
           <option value="open">New & contacted</option>
           <option value="all">All</option>
         </select>
       </div>
-      <p className="muted small">Every inquiry sent through the website's contact form. They're also emailed to the office.</p>
-      {rows.length ? rows.map((q) => <QuoteCard key={q.id} q={q} />) : <Empty>No inquiries.</Empty>}
+      <p className="muted small">Every request from the website's "Get a Free Quote" form. They're also emailed to the office.</p>
+      {rows.length ? rows.map((q) => <QuoteCard key={q.id} q={q} />) : <Empty>No quote requests.</Empty>}
     </div>
   );
 }

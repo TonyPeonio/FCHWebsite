@@ -1,6 +1,5 @@
-// Step 2 of a quote request (shown to people as a "website inquiry"): after the browser finishes
-// uploading, mark the quote as new and email the office (Reply-To = the client) plus a
-// confirmation to the client.
+// Step 2 of a quote request: after the browser finishes uploading, mark the quote as new
+// and email the office (Reply-To = the client) plus a confirmation to the client.
 import { adminClient, env, escapeHtml, HttpError, json, serve } from "../_shared/util.ts";
 import { layout, sendMail } from "../_shared/mail.ts";
 
@@ -25,7 +24,7 @@ serve(async (req) => {
     .eq("status", "draft")
     .gte("created_at", new Date(Date.now() - 60 * 60 * 1000).toISOString())
     .maybeSingle();
-  if (!quote) throw new HttpError(404, "Inquiry not found or already submitted");
+  if (!quote) throw new HttpError(404, "Quote request not found or already submitted");
 
   // Keep only files that actually finished uploading.
   const { data: stored } = await db.storage.from("quote-uploads").list(quoteId);
@@ -56,27 +55,27 @@ serve(async (req) => {
   await sendMail({
     to: env.officeEmail,
     replyTo: quote.email,
-    subject: `New website inquiry from ${quote.name || quote.email}`,
+    subject: `New quote request from ${quote.name || quote.email}`,
     html: layout(
-      "New website inquiry",
+      "New quote request",
       `<table style="font-size:14px;margin-bottom:12px">
         ${row("Name", quote.name)}${row("Email", quote.email)}${row("Phone", quote.phone)}${row("Address", quote.address)}
       </table>
       ${quote.message ? `<p style="white-space:pre-wrap;background:#f7f7f7;padding:12px">${escapeHtml(quote.message)}</p>` : ""}
       ${filesHtml}
       <p style="color:#888;font-size:13px">Reply to this email to respond directly to the client.</p>`,
-      { label: "Open inquiries", url: `${env.siteUrl}/app/#/admin/quotes` },
+      { label: "Open quotes inbox", url: `${env.siteUrl}/app/#/admin/quotes` },
     ),
   });
 
   await sendMail({
     to: quote.email,
     replyTo: env.officeEmail,
-    subject: "We received your inquiry",
+    subject: "We received your quote request",
     html: layout(
       "Thanks for reaching out!",
       `<p>Hi ${escapeHtml(quote.name || "there")},</p>
-       <p>We received your inquiry${links.length ? ` along with ${links.length} attached file(s)` : ""}. We'll review it and get back to you soon.</p>
+       <p>We received your request for a free quote${links.length ? ` along with ${links.length} attached file(s)` : ""}. We'll review it and get back to you soon.</p>
        <p>If you have house plans or material preferences you haven't sent yet, just reply to this email.</p>
        <p>— First Choice Homes</p>`,
     ),

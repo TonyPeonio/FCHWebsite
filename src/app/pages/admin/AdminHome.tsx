@@ -22,7 +22,7 @@ export function AdminHome() {
 
       <div className="stats">
         <Link to="/admin/quotes" className="stat">
-          <strong>{newQuotes.length}</strong> new {newQuotes.length === 1 ? "inquiry" : "inquiries"}
+          <strong>{newQuotes.length}</strong> new quote request{newQuotes.length === 1 ? "" : "s"}
         </Link>
         <div className="stat">
           <strong>{toReview.length}</strong> selection{toReview.length === 1 ? "" : "s"} to review
