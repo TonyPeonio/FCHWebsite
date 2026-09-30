@@ -5,6 +5,12 @@ import { layout, sendMail } from "../_shared/mail.ts";
 
 const LINK_TTL_SECONDS = 60 * 60 * 24 * 7;
 
+// Locally, SUPABASE_URL is Docker's internal address; emails need the browser-reachable one.
+function publicUrl(url: string): string {
+  const external = Deno.env.get("PUBLIC_SUPABASE_URL");
+  return external ? url.replace(Deno.env.get("SUPABASE_URL")!, external.replace(/\/$/, "")) : url;
+}
+
 serve(async (req) => {
   if (req.method !== "POST") throw new HttpError(405, "Method not allowed");
   const { quoteId } = await req.json().catch(() => ({}));
@@ -34,7 +40,7 @@ serve(async (req) => {
   const links: { name: string; url: string }[] = [];
   for (const path of paths) {
     const { data } = await db.storage.from("quote-uploads").createSignedUrl(path, LINK_TTL_SECONDS);
-    if (data) links.push({ name: path.split("/").pop()!.replace(/^\d+-/, ""), url: data.signedUrl });
+    if (data) links.push({ name: path.split("/").pop()!.replace(/^\d+-/, ""), url: publicUrl(data.signedUrl) });
   }
 
   const row = (label: string, value: string | null) =>

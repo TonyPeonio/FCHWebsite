@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth";
 
@@ -14,8 +14,12 @@ export function Mfa() {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const started = useRef(false);
 
   useEffect(() => {
+    // Enrolling twice would create two factors, so only run once (React dev mode runs effects twice).
+    if (started.current) return;
+    started.current = true;
     (async () => {
       const { data, error: listError } = await supabase.auth.mfa.listFactors();
       if (listError) return setError(listError.message);
@@ -28,7 +32,7 @@ export function Mfa() {
       }
       const { data: enrolled, error: enrollError } = await supabase.auth.mfa.enroll({
         factorType: "totp",
-        friendlyName: `Authenticator ${new Date().toISOString().slice(0, 10)}`,
+        friendlyName: `Authenticator ${new Date().toISOString()}`,
       });
       if (enrollError) return setError(enrollError.message);
       setFactorId(enrolled.id);

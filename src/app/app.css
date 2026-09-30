@@ -20,6 +20,7 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { margin: 0; font-family: var(--body-font); color: var(--text); background: var(--bg); line-height: 1.5; }
 h1, h2, h3 { font-family: var(--heading-font); color: var(--ink); font-weight: 500; line-height: 1.25; margin: 0 0 .6em; }
 h1 { font-size: clamp(1.5rem, 3vw, 2rem); }

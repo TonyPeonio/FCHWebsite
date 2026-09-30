@@ -120,6 +120,14 @@ export const SELECTION_STATUS_LABEL: Record<SelectionStatus, string> = {
   revision_requested: "Changes requested",
 };
 
+/** Same statuses, worded for the client. */
+export const SELECTION_STATUS_LABEL_CLIENT: Record<SelectionStatus, string> = {
+  requested: "Needs your choice",
+  submitted: "Submitted",
+  approved: "Approved",
+  revision_requested: "Changes requested",
+};
+
 export const DOC_KIND_LABEL: Record<DocumentKind, string> = {
   plan: "Plans",
   permit: "Permits",

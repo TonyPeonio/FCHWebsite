@@ -1,58 +1,124 @@
-# First Choice Homes LLC — Website
+# First Choice Homes LLC — Website & Client Portal
 
-Source for [firstchoicehomesllc.org](https://firstchoicehomesllc.org), rebuilt as plain HTML/CSS/JS
-from the original GoDaddy Website Builder site so it can be hosted on GitHub Pages and extended.
+- **Website** (`/`): the public marketing page for [firstchoicehomesllc.org](https://firstchoicehomesllc.org).
+- **Client portal** (`/app/`): clients log in to see their project schedule, make selections
+  (tile, paint, fixtures…), and view photos and documents. Staff manage one master calendar,
+  projects, selections, quote requests, and invitations.
 
-## Structure
+Hosted free on GitHub Pages. The backend is [Supabase](https://supabase.com) (database, logins,
+file storage, server functions). Email goes through [Resend](https://resend.com).
+
+## How it fits together
 
 ```
-index.html          The whole site (single page)
-css/styles.css      Styles — colors and fonts are CSS variables at the top
-js/main.js          Gallery lightbox, hours highlight, quote form submission
-images/             Logo, hero, welcome photo
-images/gallery/     Project photos (alt text = location / project type)
-CNAME               Custom domain for GitHub Pages
+Browser ──> GitHub Pages (static files built by Vite)
+   │
+   └──> Supabase
+          ├─ Postgres + Row Level Security   who can see what (enforced by the database)
+          ├─ Auth                            magic-link logins, 2FA for staff
+          ├─ Storage                         plans, photos, selection uploads (private)
+          └─ Edge Functions                  quote emails, invites, notifications, calendar feed
+                 └──> Resend (email)
 ```
 
-## Preview locally
+### Who sees what
+| | Owner | Staff (secretary) | Client |
+|---|---|---|---|
+| Master calendar, all projects, quotes | ✓ | ✓ | – |
+| Invite clients | ✓ | ✓ | – |
+| Add staff / change roles | ✓ | – | – |
+| Their project's schedule, selections, files | ✓ | ✓ | ✓ (own projects only) |
+| Staff-only events and hidden files | ✓ | ✓ | – |
+
+Owner and staff must use an authenticator app (2FA). Without it the database treats them as a
+regular user, so a stolen email link alone can't expose client data.
+
+### The master calendar
+The secretary works in **one calendar** (Portal → Master Calendar). Each event can be tagged to
+one or more projects. A client sees an event only if it's tagged to one of their projects **and**
+"Visible to clients" is checked. A shared event (e.g. one lumber truck for two sites) shows up for
+both clients, and neither can tell the other project exists. Untick "Visible to clients" for
+internal items like sub scheduling or pricing calls.
+
+Anyone can subscribe to their calendar in Google, Apple, or Outlook from the portal's Account
+page (read-only, auto-updating).
+
+## Project layout
+```
+index.html                 Marketing page
+src/site/                  Marketing page CSS + JS (quote form)
+app/index.html             Portal entry point
+src/app/                   Portal (React): pages/, pages/admin/, components/
+src/lib/                   Supabase client, data functions (api.ts), types
+public/                    Images and CNAME, copied as-is
+supabase/migrations/       Database schema + security rules
+supabase/functions/        Edge functions (Deno / TypeScript)
+supabase/tests/            Security tests (pgTAP)
+supabase/seed.sql          Local test data
+.github/workflows/         Build + deploy to GitHub Pages
+```
+
+## Local development
+Needs Node 20+ and Docker Desktop (running).
 
 ```bash
-python -m http.server 8765
+npm install
+npx supabase start          # local database, auth, storage, and email catcher
+cp .env.example .env.local  # then paste the "anon key" from `npx supabase status`
+cp supabase/functions/.env.example supabase/functions/.env
+npx supabase functions serve   # in a second terminal
+npm run dev                    # http://localhost:5173 (portal at /app/)
 ```
 
-Then open http://localhost:8765.
+- Emails (sign-in links, invites, quote notifications) are caught by Mailpit at http://localhost:54324.
+- Seeded logins are listed at the top of `supabase/seed.sql`. Staff accounts need 2FA; scan the
+  QR code with any authenticator app.
+- `npx supabase db reset` rebuilds the database from migrations + seed.
+- `npx supabase test db` runs the security tests.
 
-## Editing content
+## Going live (one-time setup)
+1. **Supabase:** create a project (region: West US). From *Project Settings → API*, copy the
+   Project URL and the anon/publishable key.
+2. **Link and deploy the backend:**
+   ```bash
+   npx supabase login
+   npx supabase link --project-ref <your-project-ref>
+   npx supabase db push
+   npx supabase functions deploy
+   npx supabase secrets set SITE_URL=https://firstchoicehomesllc.org OFFICE_EMAIL=firstchoicehomesllc@yahoo.com
+   npx supabase secrets set RESEND_API_KEY=<from Resend> TURNSTILE_SECRET=<from Cloudflare>
+   ```
+3. **Resend:** add and verify the domain `firstchoicehomesllc.org` (Resend shows DNS records to add
+   in GoDaddy; they don't affect existing email). Then in Supabase *Authentication → Emails → SMTP*,
+   use Resend's SMTP settings so login emails aren't rate-limited.
+4. **Cloudflare Turnstile:** create a free widget for `firstchoicehomesllc.org` to get a site key and secret.
+5. **Supabase Auth settings:** turn off "Allow new users to sign up"; set Site URL to
+   `https://firstchoicehomesllc.org/app/` and add it under Redirect URLs; enable TOTP MFA.
+6. **GitHub:** *Settings → Pages → Source: GitHub Actions*. Under *Settings → Secrets and variables
+   → Actions → Variables*, add `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_TURNSTILE_SITE_KEY`.
+   Every push to `master` then deploys automatically.
+7. **First owner account:** in Supabase *Authentication → Users → Invite user*, invite the owner,
+   then run in the SQL editor:
+   `update profiles set role = 'owner' where email = 'owner@example.com';`
+   The owner can invite everyone else from the portal.
+8. **Domain (GoDaddy DNS):** four `A` records for `@` → `185.199.108.153`, `185.199.109.153`,
+   `185.199.110.153`, `185.199.111.153`; `www` CNAME → `tonypeonio.github.io`. Leave MX records
+   alone. Enable "Enforce HTTPS" in Pages once it's live, then cancel the GoDaddy Website Builder plan
+   (keep the domain).
 
-- **Text** — edit `index.html` directly; each section is marked with a comment.
-- **Gallery photos** — drop a JPG in `images/gallery/` (resize to ~1600px wide first) and copy one of
-  the `<button><img …></button>` lines in the gallery section.
-- **Reviews / FAQ** — copy an existing `<article class="review">` or `<details>` block.
+**Cost:** GitHub Pages, Resend (3,000 emails/mo), and Turnstile are free. Supabase is free to start;
+free projects pause after a week without activity, so move to Pro ($25/mo, includes daily backups)
+once clients are using it.
 
-## Quote form
+**If the owner loses their phone:** remove their authenticator in Supabase *Authentication → Users →
+(user) → MFA factors*, and they'll be asked to set it up again at next login.
 
-GitHub Pages can't process forms by itself. The form posts to [Formspree](https://formspree.io):
+## Editing the website
+- **Text:** edit `index.html`; each section has a comment.
+- **Gallery photos:** add a JPG (about 1600px wide) to `public/images/gallery/` and copy one of the
+  `<button><img …></button>` lines.
 
-1. Create a free Formspree account using the business email and make a new form.
-2. Replace `YOUR_FORM_ID` in the `<form action="…">` in `index.html` with the form's ID.
-
-Until that's done, submitting the form opens the visitor's email app with the message pre-filled.
-
-## Deploying (GitHub Pages + GoDaddy domain)
-
-1. Repo **Settings → Pages** → Source: *Deploy from a branch*, Branch: `master` / `(root)`.
-2. Custom domain: `firstchoicehomesllc.org` (already in `CNAME`).
-3. In GoDaddy **DNS** for the domain:
-   - Delete the existing `A` record for `@` (and any "Website Builder" / forwarding record).
-   - Add four `A` records for `@`: `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153`
-   - Set the `www` record to `CNAME` → `tonypeonio.github.io`
-4. Once DNS propagates (minutes to a few hours), tick **Enforce HTTPS** in Pages settings.
-5. Only then cancel the GoDaddy Website Builder plan — **keep the domain registration**.
-
-Keep any `MX` records (email) untouched when changing DNS.
-
-## Roadmap
-
-- Client accounts with a project schedule the office keeps up to date. GitHub Pages is static-only,
-  so this needs a hosted backend for auth + database (e.g. Supabase or Firebase) that the front end
-  talks to, plus a simple admin page for the secretary to edit schedules.
+## Ideas for later
+Change orders with e-approval · allowance tracker for selections · per-project message thread ·
+warranty/punch-list requests · subcontractor logins (see only their events) · draw schedule ·
+SMS reminders · installable phone app (PWA).

@@ -47,13 +47,16 @@ export function ScheduleCalendar({ events, projects, editable, showProjectNames,
     <div className="calendar-wrap">
       <FullCalendar
         plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-        initialView={isNarrow() ? "listMonth" : "dayGridMonth"}
+        initialView={isNarrow() ? "listUpcoming" : "dayGridMonth"}
         headerToolbar={{
           left: "prev,next today",
           center: "title",
-          right: isNarrow() ? "listMonth,dayGridMonth" : "dayGridMonth,timeGridWeek,listMonth",
+          right: isNarrow() ? "listUpcoming,dayGridMonth" : "dayGridMonth,timeGridWeek,listUpcoming",
         }}
-        buttonText={{ today: "Today", month: "Month", week: "Week", list: "List" }}
+        buttonText={{ today: "Today", month: "Month", week: "Week" }}
+        // Rolling list starting today, so "what's next" is never empty just because the month is ending.
+        views={{ listUpcoming: { type: "list", duration: { days: 90 }, dateAlignment: "day", buttonText: "Upcoming" } }}
+        noEventsContent="Nothing scheduled yet."
         height="auto"
         events={fcEvents}
         editable={editable}

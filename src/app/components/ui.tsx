@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import type { Doc, SelectionStatus } from "../../lib/types";
-import { SELECTION_STATUS_LABEL } from "../../lib/types";
+import { SELECTION_STATUS_LABEL, SELECTION_STATUS_LABEL_CLIENT } from "../../lib/types";
+import { useAuth } from "../auth";
 import { fmtDate, formatBytes, useSignedUrls } from "../hooks";
 
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
@@ -22,7 +23,9 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
 }
 
 export function StatusBadge({ status }: { status: SelectionStatus }) {
-  return <span className={`badge badge-${status}`}>{SELECTION_STATUS_LABEL[status]}</span>;
+  const { isStaff } = useAuth();
+  const labels = isStaff ? SELECTION_STATUS_LABEL : SELECTION_STATUS_LABEL_CLIENT;
+  return <span className={`badge badge-${status}`}>{labels[status]}</span>;
 }
 
 export function Empty({ children }: { children: ReactNode }) {
