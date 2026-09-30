@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Mulish:wght@300;400;600;700&family=Quicksand:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css">
+  
 
   <script type="application/ld+json">
   {
@@ -46,6 +46,7 @@
     <a href="/" class="logo-link">
       <img src="images/logo.png" alt="First Choice Homes LLC" width="293" height="114">
     </a>
+    <a href="/app/" class="login-link">Client Login</a>
   </header>
 
   <main>
@@ -169,7 +170,7 @@
       <div class="container">
         <h2 class="section-title">Contact Us</h2>
         <div class="contact-grid">
-          <form id="quote-form" class="quote-form" action="https://formspree.io/f/YOUR_FORM_ID" method="POST">
+          <form id="quote-form" class="quote-form" novalidate>
             <h3>Get a Free Quote!</h3>
             <label>Name<input type="text" name="name" autocomplete="name"></label>
             <label>Email*<input type="email" name="email" autocomplete="email" required></label>
@@ -178,8 +179,15 @@
             <label>Project details
               <textarea name="message" rows="6" placeholder="Let us know the details of what you are looking for, including house plans and material preferences."></textarea>
             </label>
-            <input type="text" name="_gotcha" class="honeypot" tabindex="-1" autocomplete="off" aria-hidden="true">
-            <p class="form-note">Have house plans? Email them to <a href="mailto:firstchoicehomesllc@yahoo.com">firstchoicehomesllc@yahoo.com</a>.</p>
+            <div class="attach">
+              <label class="attach-btn">Attach house plans or photos
+                <input type="file" name="files" multiple hidden>
+              </label>
+              <ul class="attach-list" aria-live="polite"></ul>
+              <p class="form-note">Up to 10 files, 50 MB each.</p>
+            </div>
+            <input type="text" name="company" class="honeypot" tabindex="-1" autocomplete="off" aria-hidden="true">
+            <div id="turnstile" class="turnstile"></div>
             <button type="submit" class="btn">Send</button>
             <p class="form-status" role="status" aria-live="polite"></p>
           </form>
@@ -224,6 +232,6 @@
     <button type="button" class="lb-next" aria-label="Next photo">›</button>
   </dialog>
 
-  <script src="js/main.js"></script>
+  <script type="module" src="/src/site/main.js"></script>
 </body>
 </html>

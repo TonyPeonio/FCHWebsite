@@ -251,3 +251,42 @@ h1, h2, h3, h4 {
   .gallery { grid-template-columns: repeat(2, 1fr); }
   .hero-img { margin-top: 40px; }
 }
+
+/* Client login link in the header */
+.site-header { position: relative; }
+.login-link {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #ddd;
+  font-size: .8rem;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  border: 1px solid #777;
+  padding: 7px 12px;
+}
+.login-link:hover { color: #fff; border-color: #fff; }
+@media (max-width: 560px) {
+  .site-header { justify-content: flex-start; }
+  .login-link { right: 16px; }
+  .logo-link img { width: 170px; }
+}
+
+/* Quote form attachments + spam check */
+.attach { margin-bottom: 14px; }
+.attach-btn {
+  display: inline-block;
+  cursor: pointer;
+  border: 1px dashed #999;
+  padding: 10px 14px;
+  font-size: .85rem;
+  color: var(--ink);
+}
+.attach-btn:hover { border-color: var(--ink); }
+.attach-list { list-style: none; padding: 0; margin: 8px 0 0; font-size: .85rem; }
+.attach-list button { background: none; border: 0; color: var(--slate-dark); text-decoration: underline; cursor: pointer; font: inherit; }
+.turnstile { min-height: 65px; margin-bottom: 12px; }
+.quote-form .btn:disabled { opacity: .6; cursor: default; }
