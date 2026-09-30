@@ -38,7 +38,8 @@ document.getElementById("year").textContent = new Date().getFullYear();
   });
 })();
 
-// Quote form: saves the request + uploads to Supabase, which emails the office.
+// Website inquiry form (called quote requests in the code and database): saves the inquiry +
+// uploads to Supabase, which emails the office.
 (function quoteForm() {
   const form = document.getElementById("quote-form");
   const status = form.querySelector(".form-status");
@@ -53,7 +54,7 @@ document.getElementById("year").textContent = new Date().getFullYear();
   if (!SUPABASE_URL || !SUPABASE_KEY || !import.meta.env.VITE_TURNSTILE_SITE_KEY) {
     form.addEventListener("submit", (e) => {
       e.preventDefault();
-      status.textContent = `Online quotes are almost ready. For now, please email us at ${EMAIL} or call (360) 673-2926.`;
+      status.textContent = `Online inquiries are almost ready. For now, please email us at ${EMAIL} or call (360) 673-2926.`;
     });
     return;
   }
@@ -138,7 +139,7 @@ document.getElementById("year").textContent = new Date().getFullYear();
       form.reset();
       files = [];
       renderFiles();
-      status.textContent = "Thanks! We received your request and will be in touch soon.";
+      status.textContent = "Thanks! We received your inquiry and will be in touch soon.";
     } catch (err) {
       status.textContent = `${err.message}. You can also email us at ${EMAIL}.`;
     } finally {
