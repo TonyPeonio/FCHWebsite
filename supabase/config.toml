@@ -442,6 +442,9 @@ verify_jwt = false
 [functions.public-gallery]
 verify_jwt = false
 
+[functions.delete-user]
+verify_jwt = false
+
 [functions.notify]
 verify_jwt = false
 

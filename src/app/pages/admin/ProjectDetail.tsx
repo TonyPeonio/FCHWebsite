@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as api from "../../../lib/api";
 import { CATEGORY_LABEL, DOC_KIND_LABEL, type Doc, type DocumentKind, type Project } from "../../../lib/types";
-import { DocList, Empty, ErrorNote, FilePicker, Modal, ProjectDot, StatusBadge, UploadFailures } from "../../components/ui";
+import { DocList, Empty, ErrorNote, FilePicker, Modal, ProjectDot, StatusBadge, TypeToConfirm, UploadFailures } from "../../components/ui";
 import { useAuth } from "../../auth";
 import { byId, fmtDate, fmtEventWhen, upcoming, useDocuments, useEvents, usePeople, useProjects, useSelections } from "../../hooks";
 import { draftFrom, EventEditor } from "./MasterCalendar";
@@ -16,7 +16,7 @@ export function ProjectDetail() {
   const projects = useProjects();
   const project = byId(projects.data)[id];
   const [tab, setTab] = useState<Tab>("overview");
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState<false | "edit" | "complete">(false);
   const [deleting, setDeleting] = useState(false);
   const { isOwner } = useAuth();
   const qc = useQueryClient();
@@ -43,10 +43,19 @@ export function ProjectDetail() {
         </h1>
         {isOwner && (
           <div className="btn-row">
-            <button className="btn" disabled={setCompleted.isPending} onClick={() => setCompleted.mutate(project.status !== "complete")}>
+            <button
+              className="btn"
+              disabled={setCompleted.isPending}
+              onClick={() => {
+                if (project.status === "complete") setCompleted.mutate(false);
+                // The website needs both to list the project, so ask for them first.
+                else if (!project.category || !project.city?.trim()) setEditing("complete");
+                else setCompleted.mutate(true);
+              }}
+            >
               {project.status === "complete" ? "Reopen" : "Mark completed"}
             </button>
-            <button className="btn" onClick={() => setEditing(true)}>
+            <button className="btn" onClick={() => setEditing("edit")}>
               Edit
             </button>
             <button className="btn danger" onClick={() => setDeleting(true)}>
@@ -64,6 +73,14 @@ export function ProjectDetail() {
           : project.target_completion && <> · Target {fmtDate(project.target_completion)}</>}
       </p>
       <ErrorNote error={setCompleted.error} />
+      {isOwner && project.status === "complete" && (!project.category || !project.city?.trim()) && (
+        <p className="notice warn">
+          This project won't appear on the website until it has a build type and city.{" "}
+          <button className="link-btn" onClick={() => setEditing("edit")}>
+            Add them
+          </button>
+        </p>
+      )}
 
       <div className="tabs" role="tablist">
         {(["overview", "selections", "files", "clients"] as Tab[]).map((t) => (
@@ -78,7 +95,7 @@ export function ProjectDetail() {
       {tab === "files" && <FilesTab project={project} />}
       {tab === "clients" && <ClientsTab projectId={id} />}
 
-      {editing && <ProjectForm project={project} onClose={() => setEditing(false)} />}
+      {editing && <ProjectForm project={project} completing={editing === "complete"} onClose={() => setEditing(false)} />}
       {deleting && <DeleteProject project={project} onClose={() => setDeleting(false)} />}
     </div>
   );
@@ -88,8 +105,6 @@ export function ProjectDetail() {
 function DeleteProject({ project, onClose }: { project: Project; onClose: () => void }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const [typed, setTyped] = useState("");
-  const matches = typed.trim().toLowerCase() === project.name.trim().toLowerCase();
   const remove = useMutation({
     mutationFn: () => api.deleteProject(project.id),
     onSuccess: () => {
@@ -97,34 +112,21 @@ function DeleteProject({ project, onClose }: { project: Project; onClose: () => 
       qc.invalidateQueries();
     },
   });
-
   return (
-    <Modal title="Delete project" onClose={onClose}>
-      <form
-        onSubmit={(e: FormEvent) => {
-          e.preventDefault();
-          if (matches) remove.mutate();
-        }}
-      >
-        <p>
-          This permanently deletes <strong>{project.name}</strong>, including its photos and files, selections, and
-          clients' access to it. Calendar events tagged to it stay on the calendar. This can't be undone.
-        </p>
-        <label>
-          Type the project name to confirm
-          <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={project.name} autoComplete="off" />
-        </label>
-        <div className="btn-row">
-          <button className="btn danger" disabled={!matches || remove.isPending}>
-            {remove.isPending ? "Deleting…" : "Delete project"}
-          </button>
-          <button type="button" className="btn" onClick={onClose}>
-            Cancel
-          </button>
-        </div>
-        <ErrorNote error={remove.error} />
-      </form>
-    </Modal>
+    <TypeToConfirm
+      title="Delete project"
+      name={project.name}
+      action="Delete project"
+      pending={remove.isPending}
+      error={remove.error}
+      onConfirm={() => remove.mutate()}
+      onClose={onClose}
+    >
+      <p>
+        This permanently deletes <strong>{project.name}</strong>, including its photos and files, selections, and
+        clients' access to it. Calendar events tagged to it stay on the calendar. This can't be undone.
+      </p>
+    </TypeToConfirm>
   );
 }
 
@@ -355,9 +357,6 @@ function FilesTab({ project }: { project: Project }) {
         <UploadFailures failed={failed} />
         <ErrorNote error={upload.error ?? remove.error ?? toggle.error ?? website.error} />
       </section>
-      )}
-      {isOwner && completed && (!project.city || !project.category) && (
-        <p className="notice warn">Add a city and build type (Edit) so this project's photos can appear on the website.</p>
       )}
       {(docs.data?.length ?? 0) === 0 && <Empty>No photos or files yet.</Empty>}
 

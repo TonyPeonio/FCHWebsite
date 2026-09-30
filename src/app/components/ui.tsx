@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { Doc, SelectionStatus } from "../../lib/types";
 import { SELECTION_STATUS_LABEL, SELECTION_STATUS_LABEL_CLIENT } from "../../lib/types";
 import { useAuth } from "../auth";
@@ -175,5 +175,54 @@ export function UploadFailures({ failed }: { failed: { file: File; reason: strin
         ))}
       </ul>
     </div>
+  );
+}
+
+/** Confirms a permanent delete: the button only works once `name` is typed (capitals don't matter). */
+export function TypeToConfirm({
+  title,
+  name,
+  action,
+  pending,
+  error,
+  onConfirm,
+  onClose,
+  children,
+}: {
+  title: string;
+  name: string;
+  action: string;
+  pending: boolean;
+  error: unknown;
+  onConfirm: () => void;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const [typed, setTyped] = useState("");
+  const matches = typed.trim().toLowerCase() === name.trim().toLowerCase();
+  return (
+    <Modal title={title} onClose={onClose}>
+      <form
+        onSubmit={(e: FormEvent) => {
+          e.preventDefault();
+          if (matches) onConfirm();
+        }}
+      >
+        {children}
+        <label>
+          Type <strong>{name}</strong> to confirm
+          <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={name} autoComplete="off" />
+        </label>
+        <div className="btn-row">
+          <button className="btn danger" disabled={!matches || pending}>
+            {pending ? "Deleting…" : action}
+          </button>
+          <button type="button" className="btn" onClick={onClose}>
+            Cancel
+          </button>
+        </div>
+        <ErrorNote error={error} />
+      </form>
+    </Modal>
   );
 }

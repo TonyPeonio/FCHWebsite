@@ -16,10 +16,21 @@ export const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
 
 const PALETTE = ["#2f6f8f", "#b5651d", "#5b8c3a", "#8e44ad", "#c0392b", "#16a085", "#d4a017", "#34495e"];
 
-export function ProjectForm({ project, onClose }: { project?: Project; onClose: (saved?: Project) => void }) {
+export function ProjectForm({
+  project,
+  completing,
+  onClose,
+}: {
+  project?: Project;
+  /** Opened by "Mark completed" because the build type or city is missing. */
+  completing?: boolean;
+  onClose: (saved?: Project) => void;
+}) {
   const qc = useQueryClient();
   const [p, setP] = useState<Partial<Project>>(
-    project ?? { name: "", address: "", status: "planning", color: PALETTE[Math.floor(Math.random() * PALETTE.length)] },
+    project
+      ? { ...project, ...(completing && { status: "complete" as const }) }
+      : { name: "", address: "", status: "planning", color: PALETTE[Math.floor(Math.random() * PALETTE.length)] },
   );
   const save = useMutation({
     mutationFn: () =>
@@ -39,13 +50,16 @@ export function ProjectForm({ project, onClose }: { project?: Project; onClose: 
   });
 
   return (
-    <Modal title={project ? "Edit project" : "New project"} onClose={() => onClose()}>
+    <Modal title={completing ? "Mark completed" : project ? "Edit project" : "New project"} onClose={() => onClose()}>
       <form
         onSubmit={(e: FormEvent) => {
           e.preventDefault();
           save.mutate();
         }}
       >
+        {completing && (
+          <p className="notice warn">Add a build type and city so this project can appear on the website, then save.</p>
+        )}
         <label>
           Name
           <input required value={p.name ?? ""} onChange={(e) => setP({ ...p, name: e.target.value })} placeholder="e.g. Smith Residence" />
@@ -70,7 +84,13 @@ export function ProjectForm({ project, onClose }: { project?: Project; onClose: 
           </label>
           <label>
             City
-            <input value={p.city ?? ""} onChange={(e) => setP({ ...p, city: e.target.value })} placeholder="e.g. Kalama" />
+            {/* Completed projects are labeled City-Month-Year on the website. */}
+            <input
+              required={p.status === "complete"}
+              value={p.city ?? ""}
+              onChange={(e) => setP({ ...p, city: e.target.value })}
+              placeholder="e.g. Kalama"
+            />
           </label>
         </div>
         <div className="grid-2 tight">

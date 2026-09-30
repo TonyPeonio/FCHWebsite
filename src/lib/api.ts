@@ -378,6 +378,11 @@ export async function sendSignInEmail(email: string) {
   return callFunction<{ sent: true }>("send-sign-in-email", { email });
 }
 
+/** Permanently deletes a client or staff account (see supabase/functions/delete-user). */
+export async function deleteUser(userId: string) {
+  return callFunction<{ deleted: true }>("delete-user", { userId });
+}
+
 export async function inviteUser(input: { email: string; fullName: string; role: "client" | "staff"; projectId?: string }) {
   return callFunction<{ userId: string; invited: boolean }>("invite-user", input);
 }
