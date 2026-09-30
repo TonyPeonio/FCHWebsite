@@ -228,6 +228,33 @@ export async function assignPhoto(doc: Doc, projectId: string) {
   }
 }
 
+/** Every file under a storage folder, subfolders included. */
+async function listFiles(prefix: string): Promise<string[]> {
+  const files: string[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const items = check(await supabase.storage.from(BUCKET).list(prefix, { limit: 1000, offset }));
+    for (const item of items) {
+      const path = `${prefix}/${item.name}`;
+      if (item.id === null) files.push(...(await listFiles(path))); // a folder
+      else files.push(path);
+    }
+    if (items.length < 1000) return files;
+  }
+}
+
+/**
+ * Deletes a project for good. The database removes its client access, calendar tags, selections,
+ * and file records; stored files aren't removed with them, so they're deleted here too.
+ */
+export async function deleteProject(id: string) {
+  const files = await listFiles(id);
+  const deleted = check(await supabase.from("projects").delete().eq("id", id).select("id"));
+  if (!deleted.length) throw new Error("The project couldn't be deleted");
+  for (let i = 0; i < files.length; i += 100) {
+    await supabase.storage.from(BUCKET).remove(files.slice(i, i + 100));
+  }
+}
+
 export async function fetchDocuments(filter: { projectId?: string; selectionId?: string; library?: boolean } = {}): Promise<Doc[]> {
   let q = supabase.from("documents").select("*").order("created_at", { ascending: false });
   // The owner's photo-dump rows have no project; only the photo dump asks for them.

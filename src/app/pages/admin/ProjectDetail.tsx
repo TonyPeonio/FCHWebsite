@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as api from "../../../lib/api";
 import { CATEGORY_LABEL, DOC_KIND_LABEL, type Doc, type DocumentKind, type Project } from "../../../lib/types";
@@ -17,6 +17,7 @@ export function ProjectDetail() {
   const project = byId(projects.data)[id];
   const [tab, setTab] = useState<Tab>("overview");
   const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const { isOwner } = useAuth();
   const qc = useQueryClient();
   const setCompleted = useMutation({
@@ -48,6 +49,9 @@ export function ProjectDetail() {
             <button className="btn" onClick={() => setEditing(true)}>
               Edit
             </button>
+            <button className="btn danger" onClick={() => setDeleting(true)}>
+              Delete
+            </button>
           </div>
         )}
       </div>
@@ -75,7 +79,52 @@ export function ProjectDetail() {
       {tab === "clients" && <ClientsTab projectId={id} />}
 
       {editing && <ProjectForm project={project} onClose={() => setEditing(false)} />}
+      {deleting && <DeleteProject project={project} onClose={() => setDeleting(false)} />}
     </div>
+  );
+}
+
+/** Deleting also removes the project's photos and files, so the name must be typed to confirm. */
+function DeleteProject({ project, onClose }: { project: Project; onClose: () => void }) {
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const [typed, setTyped] = useState("");
+  const matches = typed.trim().toLowerCase() === project.name.trim().toLowerCase();
+  const remove = useMutation({
+    mutationFn: () => api.deleteProject(project.id),
+    onSuccess: () => {
+      navigate("/admin/projects");
+      qc.invalidateQueries();
+    },
+  });
+
+  return (
+    <Modal title="Delete project" onClose={onClose}>
+      <form
+        onSubmit={(e: FormEvent) => {
+          e.preventDefault();
+          if (matches) remove.mutate();
+        }}
+      >
+        <p>
+          This permanently deletes <strong>{project.name}</strong>, including its photos and files, selections, and
+          clients' access to it. Calendar events tagged to it stay on the calendar. This can't be undone.
+        </p>
+        <label>
+          Type the project name to confirm
+          <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={project.name} autoComplete="off" />
+        </label>
+        <div className="btn-row">
+          <button className="btn danger" disabled={!matches || remove.isPending}>
+            {remove.isPending ? "Deleting…" : "Delete project"}
+          </button>
+          <button type="button" className="btn" onClick={onClose}>
+            Cancel
+          </button>
+        </div>
+        <ErrorNote error={remove.error} />
+      </form>
+    </Modal>
   );
 }
 

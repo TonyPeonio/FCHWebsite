@@ -120,6 +120,8 @@ select is((select count(*) from events), 5::bigint, 'Staff cannot delete calenda
 delete from event_projects;
 select is((select count(*) from event_projects), 8::bigint, 'Staff cannot change event project tags');
 select throws_ok($$ insert into projects (name) values ('x') $$, '42501', null, 'Staff cannot create projects');
+delete from projects;
+select is((select count(*) from projects), 3::bigint, 'Staff cannot delete projects');
 select throws_ok($$ insert into selections (project_id, title) values ('10000000-0000-0000-0000-000000000001', 'x') $$,
   '42501', null, 'Staff cannot request selections');
 select throws_ok($$ insert into project_members values ('10000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-0000000000c1') $$,
