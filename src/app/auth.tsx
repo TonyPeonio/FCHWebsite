@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
-import { consumeHashTokens, supabase } from "../lib/supabase";
+import { clearAuthHash, supabase } from "../lib/supabase";
 import type { Profile } from "../lib/types";
 
 interface AuthState {
@@ -35,10 +35,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    consumeHashTokens()
-      .catch(console.error)
-      .then(() => supabase.auth.getSession())
-      .then(({ data }) => load(data.session));
+    // getSession waits for supabase-js to pick up any session from a sign-in link first.
+    supabase.auth.getSession().then(({ data }) => {
+      clearAuthHash();
+      load(data.session);
+    });
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       // Defer so we don't call Supabase inside its own auth callback.
       if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
