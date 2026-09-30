@@ -15,9 +15,9 @@ insert into public.documents (project_id, storage_path, file_name, kind, client_
   ('10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001/docs/hidden.pdf', 'hidden.pdf', 'contract', false),
   ('10000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000002/docs/jones.pdf', 'jones.pdf', 'plan', true);
 
-create function pg_temp.login(uid uuid, aal text default 'aal1') returns void language sql as $$
+create function pg_temp.login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims',
-    json_build_object('sub', uid, 'role', 'authenticated', 'aal', aal)::text, true);
+    json_build_object('sub', uid, 'role', 'authenticated')::text, true);
 $$;
 
 ---------------------------------------------------------------------------- Smith (client, P1)
@@ -87,15 +87,9 @@ select pg_temp.login('00000000-0000-0000-0000-0000000000c3');
 select results_eq($$ select title from events $$, $$ values ('Office closed') $$, 'Lee sees only the event tagged to P3');
 select is((select count(*) from selections), 0::bigint, 'Lee has no selections');
 
----------------------------------------------------------------------------- Staff without 2FA
-select pg_temp.login('00000000-0000-0000-0000-00000000000b', 'aal1');
-select is(is_staff(), false, 'Staff without 2FA are not treated as staff');
-select is((select count(*) from projects), 0::bigint, 'Staff without 2FA see no projects');
-select is((select count(*) from quote_requests), 0::bigint, 'Staff without 2FA see no quotes');
-
----------------------------------------------------------------------------- Staff with 2FA
-select pg_temp.login('00000000-0000-0000-0000-00000000000b', 'aal2');
-select is(is_staff(), true, 'Staff with 2FA are staff');
+---------------------------------------------------------------------------- Staff (view-only)
+select pg_temp.login('00000000-0000-0000-0000-00000000000b');
+select is(is_staff(), true, 'Staff accounts are staff');
 select is((select count(*) from projects), 3::bigint, 'Staff see all projects');
 select is((select count(*) from events), 5::bigint, 'Staff see all events, including staff-only');
 select is((select count(*) from quote_requests), 1::bigint, 'Staff see quote requests');
@@ -128,7 +122,7 @@ select throws_ok($$ update profiles set role = 'owner' where id = auth.uid() $$,
   'Staff cannot promote themselves');
 
 ---------------------------------------------------------------------------- Owner
-select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'aal2');
+select pg_temp.login('00000000-0000-0000-0000-00000000000a');
 select lives_ok($$ insert into events (title, starts_at) values ('Owner event', now()) $$, 'Owner can add calendar events');
 select lives_ok($$ update events set title = 'Framing inspection (moved)' where id = '20000000-0000-0000-0000-000000000001' $$, 'Owner can edit events');
 select is((select title from events where id = '20000000-0000-0000-0000-000000000001'), 'Framing inspection (moved)', 'Owner edit saved');

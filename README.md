@@ -15,7 +15,7 @@ Browser ──> GitHub Pages (static files built by Vite)
    │
    └──> Supabase
           ├─ Postgres + Row Level Security   who can see what (enforced by the database)
-          ├─ Auth                            magic-link logins, 2FA for staff
+          ├─ Auth                            email-link and password logins
           ├─ Storage                         plans, photos, selection uploads (private)
           └─ Edge Functions                  quote emails, invites, notifications, calendar feed
                  └──> Resend (email)
@@ -34,9 +34,6 @@ Browser ──> GitHub Pages (static files built by Vite)
 Staff accounts are **view-only everywhere**; the database rejects any change they attempt.
 Anyone who needs to edit (for example the secretary who keeps the calendar up to date) gets an
 owner account.
-
-Owner and staff must use an authenticator app (2FA). Without it the database treats them as a
-regular user, so a stolen email link alone can't expose client data.
 
 ### The master calendar
 Whoever manages the schedule (an owner account) works in **one calendar** (Portal → Master Calendar). Staff can view it but not change it. Each event can be tagged to
@@ -76,8 +73,7 @@ npm run dev                    # http://localhost:5173 (portal at /app/)
 ```
 
 - Emails (sign-in links, invites, quote notifications) are caught by Mailpit at http://localhost:54324.
-- Seeded logins are listed at the top of `supabase/seed.sql`. Staff accounts need 2FA; scan the
-  QR code with any authenticator app.
+- Seeded logins are listed at the top of `supabase/seed.sql`.
 - `npx supabase db reset` rebuilds the database from migrations + seed.
 - `npx supabase test db` runs the security tests.
 
@@ -98,7 +94,7 @@ npm run dev                    # http://localhost:5173 (portal at /app/)
    use Resend's SMTP settings so login emails aren't rate-limited.
 4. **Cloudflare Turnstile:** create a free widget for `firstchoicehomesllc.org` to get a site key and secret.
 5. **Supabase Auth settings:** turn off "Allow new users to sign up"; set Site URL to
-   `https://firstchoicehomesllc.org/app/` and add it under Redirect URLs; enable TOTP MFA.
+   `https://firstchoicehomesllc.org/app/` and add it under Redirect URLs.
 6. **GitHub:** *Settings → Pages → Source: GitHub Actions*. Under *Settings → Secrets and variables
    → Actions → Variables*, add `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_TURNSTILE_SITE_KEY`.
    Every push to `master` then deploys automatically.
@@ -114,9 +110,6 @@ npm run dev                    # http://localhost:5173 (portal at /app/)
 **Cost:** GitHub Pages, Resend (3,000 emails/mo), and Turnstile are free. Supabase is free to start;
 free projects pause after a week without activity, so move to Pro ($25/mo, includes daily backups)
 once clients are using it.
-
-**If the owner loses their phone:** remove their authenticator in Supabase *Authentication → Users →
-(user) → MFA factors*, and they'll be asked to set it up again at next login.
 
 ## Editing the website
 - **Text:** edit `index.html`; each section has a comment.

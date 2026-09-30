@@ -8,8 +8,6 @@ interface AuthState {
   loading: boolean;
   session: Session | null;
   profile: Profile | null;
-  /** Staff accounts must pass 2FA before they get staff access. */
-  needsMfa: boolean;
   isStaff: boolean;
   isOwner: boolean;
   refresh: () => Promise<void>;
@@ -23,22 +21,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [aal, setAal] = useState<string | null>(null);
 
   const load = useCallback(async (s: Session | null) => {
     setSession(s);
     if (!s) {
       setProfile(null);
-      setAal(null);
       setLoading(false);
       return;
     }
-    const [{ data: prof }, { data: level }] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", s.user.id).single(),
-      supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
-    ]);
+    const { data: prof } = await supabase.from("profiles").select("*").eq("id", s.user.id).single();
     setProfile(prof as Profile | null);
-    setAal(level?.currentLevel ?? null);
     setLoading(false);
   }, []);
 
@@ -49,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(({ data }) => load(data.session));
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       // Defer so we don't call Supabase inside its own auth callback.
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "MFA_CHALLENGE_VERIFIED" || event === "USER_UPDATED") {
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
         setTimeout(() => {
           queryClient.clear();
           load(s);
@@ -61,14 +53,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, [load, queryClient]);
 
-  const staffRole = profile?.role === "owner" || profile?.role === "staff";
   const value: AuthState = {
     loading,
     session,
     profile,
-    needsMfa: staffRole && aal !== "aal2",
-    isStaff: staffRole && aal === "aal2",
-    isOwner: profile?.role === "owner" && aal === "aal2",
+    isStaff: profile?.role === "owner" || profile?.role === "staff",
+    isOwner: profile?.role === "owner",
     refresh: async () => load((await supabase.auth.getSession()).data.session),
     signOut: async () => {
       await supabase.auth.signOut();

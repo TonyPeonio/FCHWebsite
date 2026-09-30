@@ -61,7 +61,7 @@ export async function callerClient(req: Request): Promise<{ client: SupabaseClie
   return { client, user: data.user };
 }
 
-/** Uses the database's own checks, which also require a 2FA-verified session for staff. */
+/** Uses the database's own role checks. */
 export async function callerIs(client: SupabaseClient, check: "is_staff" | "is_owner"): Promise<boolean> {
   const { data, error } = await client.rpc(check);
   if (error) throw error;

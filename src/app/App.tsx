@@ -3,7 +3,6 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth";
 import { Layout } from "./components/Layout";
 import { Login } from "./pages/Login";
-import { Mfa } from "./pages/Mfa";
 import { Dashboard } from "./pages/Dashboard";
 
 // Split the calendar and staff pages into separate downloads so clients load less.
@@ -22,11 +21,10 @@ const Quotes = named(() => import("./pages/admin/Quotes"), "Quotes");
 const People = named(() => import("./pages/admin/People"), "People");
 
 export function App() {
-  const { loading, session, needsMfa, isStaff } = useAuth();
+  const { loading, session, isStaff } = useAuth();
 
   if (loading) return <div className="page-loading">Loading…</div>;
   if (!session) return <Login />;
-  if (needsMfa) return <Mfa />;
 
   return (
     <Layout>
