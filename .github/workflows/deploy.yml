@@ -29,7 +29,8 @@ jobs:
           # Set these under Settings → Secrets and variables → Actions → Variables
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
-          VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
+          # Turnstile site keys are public; a repo variable can override this one.
+          VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY || '0x4AAAAAAFKTw1SX-7WV0OSB' }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
