@@ -2,6 +2,7 @@ import imageCompression from "browser-image-compression";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 import type {
+  CalendarProject,
   CalEvent,
   Doc,
   DocumentKind,
@@ -32,6 +33,11 @@ export async function callFunction<T = unknown>(name: string, body: unknown): Pr
 }
 
 // ---------------------------------------------------------------- projects
+/** Project names and colors for labeling calendar events (staff can't read projects themselves). */
+export async function fetchCalendarProjects(): Promise<CalendarProject[]> {
+  return check(await supabase.rpc("calendar_projects"));
+}
+
 export async function fetchProjects(): Promise<Project[]> {
   return check(await supabase.from("projects").select("*").order("name"));
 }

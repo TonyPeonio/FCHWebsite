@@ -25,16 +25,16 @@ Browser ──> GitHub Pages (static files built by Vite)
 ### Who sees what
 | | Owner | Staff | Client |
 |---|---|---|---|
-| See master calendar, all projects, inquiries, files | ✓ | ✓ (view only) | – |
+| Master calendar, including staff-only events (project names and colors only) | ✓ | ✓ (view only) | – |
+| Projects, photos and files, selections, inquiries, people, photo dump | ✓ | – | – |
 | Add/change calendar events, projects, selections, files | ✓ | – | – |
 | Invite clients, add staff, change roles | ✓ | – | – |
-| Their project's schedule, selections, files | ✓ | ✓ | ✓ (own projects only) |
+| Their project's schedule, selections, files | ✓ | – | ✓ (own projects only) |
 | Respond to selections, upload their own photos | – | – | ✓ |
-| Staff-only events and hidden files | ✓ | ✓ | – |
 
-Staff accounts are **view-only everywhere**; the database rejects any change they attempt.
-Anyone who needs to edit (for example the secretary who keeps the calendar up to date) gets an
-owner account.
+Staff accounts see **only the master calendar** and can't change anything; the database enforces
+both. Anyone who needs to edit (for example the secretary who keeps the calendar up to date) gets
+an owner account.
 
 ### The master calendar
 Whoever manages the schedule (an owner account) works in **one calendar** (Portal → Master Calendar). Staff can view it but not change it. Each event can be tagged to

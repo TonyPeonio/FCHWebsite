@@ -13,7 +13,7 @@ const staffNav = [
   { to: "/admin", label: "Overview", end: true },
   { to: "/admin/calendar", label: "Master Calendar" },
   { to: "/admin/projects", label: "Projects" },
-  { to: "/admin/photos", label: "Photo dump", ownerOnly: true },
+  { to: "/admin/photos", label: "Photo dump" },
   { to: "/admin/quotes", label: "Inquiries" },
   { to: "/admin/people", label: "People" },
 ];
@@ -21,7 +21,8 @@ const staffNav = [
 export function Layout({ children }: { children: ReactNode }) {
   const { isStaff, isOwner, profile, signOut } = useAuth();
   const [open, setOpen] = useState(false);
-  const nav = isStaff ? staffNav.filter((n) => isOwner || !n.ownerOnly) : clientNav;
+  // Staff (not owners) get only the master calendar.
+  const nav = isOwner ? staffNav : isStaff ? staffNav.filter((n) => n.to === "/admin/calendar") : clientNav;
 
   return (
     <div className="shell">

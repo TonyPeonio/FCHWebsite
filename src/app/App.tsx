@@ -31,7 +31,7 @@ export function App() {
     <Layout>
       <Suspense fallback={<div className="page muted">Loading…</div>}>
       <Routes>
-        {isStaff ? (
+        {isOwner ? (
           <>
             <Route path="/" element={<Navigate to="/admin" replace />} />
             <Route path="/admin" element={<AdminHome />} />
@@ -39,8 +39,15 @@ export function App() {
             <Route path="/admin/projects" element={<Projects />} />
             <Route path="/admin/projects/:id" element={<ProjectDetail />} />
             <Route path="/admin/quotes" element={<Quotes />} />
-            {isOwner && <Route path="/admin/photos" element={<PhotoDump />} />}
+            <Route path="/admin/photos" element={<PhotoDump />} />
             <Route path="/admin/people" element={<People />} />
+            <Route path="/selections/:id" element={<SelectionDetail />} />
+          </>
+        ) : isStaff ? (
+          // Staff see only the master calendar (the database enforces the same).
+          <>
+            <Route path="/" element={<Navigate to="/admin/calendar" replace />} />
+            <Route path="/admin/calendar" element={<MasterCalendar />} />
           </>
         ) : (
           <>
@@ -48,9 +55,9 @@ export function App() {
             <Route path="/schedule" element={<Schedule />} />
             <Route path="/selections" element={<Selections />} />
             <Route path="/files" element={<Files />} />
+            <Route path="/selections/:id" element={<SelectionDetail />} />
           </>
         )}
-        <Route path="/selections/:id" element={<SelectionDetail />} />
         <Route path="/account" element={<Account />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

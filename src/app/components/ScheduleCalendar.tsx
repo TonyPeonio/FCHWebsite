@@ -4,12 +4,12 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import listPlugin from "@fullcalendar/list";
 import interactionPlugin, { type DateClickArg, type EventResizeDoneArg } from "@fullcalendar/interaction";
 import type { EventClickArg, EventDropArg, EventInput } from "@fullcalendar/core";
-import type { CalEvent, Project } from "../../lib/types";
+import type { CalEvent, CalendarProject } from "../../lib/types";
 import { allDayDate, projectColor } from "../hooks";
 
 interface Props {
   events: CalEvent[];
-  projects: Record<string, Project>;
+  projects: Record<string, CalendarProject>;
   editable?: boolean;
   /** Prefix titles with project names (staff view). */
   showProjectNames?: boolean;

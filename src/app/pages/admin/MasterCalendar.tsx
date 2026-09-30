@@ -1,10 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as api from "../../../lib/api";
-import { EVENT_CATEGORIES, type CalEvent, type Project } from "../../../lib/types";
+import { EVENT_CATEGORIES, type CalEvent, type CalendarProject } from "../../../lib/types";
 import { ScheduleCalendar } from "../../components/ScheduleCalendar";
 import { ErrorNote, Modal, ProjectDot } from "../../components/ui";
-import { allDayDate, allDayIso, byId, fmtEventWhen, useEvents, useProjects } from "../../hooks";
+import { allDayDate, allDayIso, byId, fmtEventWhen, useCalendarProjects, useEvents } from "../../hooks";
 import { useAuth } from "../../auth";
 
 // <input type="datetime-local"> works in local time without a timezone suffix.
@@ -61,7 +61,7 @@ function draftFrom(ev: CalEvent | null, date?: string, allDay = true, projectId?
   };
 }
 
-export function EventEditor({ initial, projects, onClose }: { initial: Draft; projects: Project[]; onClose: () => void }) {
+export function EventEditor({ initial, projects, onClose }: { initial: Draft; projects: CalendarProject[]; onClose: () => void }) {
   const qc = useQueryClient();
   const [d, setD] = useState<Draft>(initial);
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setD((prev) => ({ ...prev, [k]: v }));
@@ -192,7 +192,7 @@ export function EventEditor({ initial, projects, onClose }: { initial: Draft; pr
 export function MasterCalendar() {
   const qc = useQueryClient();
   const events = useEvents();
-  const projects = useProjects();
+  const projects = useCalendarProjects();
   const projectMap = byId(projects.data);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [showInternal, setShowInternal] = useState(true);

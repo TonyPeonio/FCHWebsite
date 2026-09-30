@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import * as api from "../lib/api";
-import type { CalEvent, Project } from "../lib/types";
+import type { CalEvent, CalendarProject } from "../lib/types";
 
 export const useProjects = () => useQuery({ queryKey: ["projects"], queryFn: api.fetchProjects });
+export const useCalendarProjects = () => useQuery({ queryKey: ["projects", "calendar"], queryFn: api.fetchCalendarProjects });
 export const useEvents = () => useQuery({ queryKey: ["events"], queryFn: api.fetchEvents });
 export const useSelections = (projectId?: string) =>
   useQuery({ queryKey: ["selections", projectId ?? "all"], queryFn: () => api.fetchSelections(projectId) });
@@ -66,7 +67,7 @@ export function upcoming(events: CalEvent[] | undefined, limit = 5) {
     .slice(0, limit);
 }
 
-export function projectColor(ev: CalEvent, projects: Record<string, Project>) {
+export function projectColor(ev: CalEvent, projects: Record<string, CalendarProject>) {
   const first = ev.event_projects[0];
   return first ? projects[first.project_id]?.color ?? "#778899" : "#999999";
 }

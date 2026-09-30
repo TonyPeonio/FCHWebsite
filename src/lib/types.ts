@@ -28,6 +28,9 @@ export interface Project {
   completed_on: string | null;
 }
 
+/** What the calendar needs to label events; staff get only this about projects. */
+export type CalendarProject = Pick<Project, "id" | "name" | "color">;
+
 export interface CalEvent {
   id: string;
   title: string;
