@@ -291,3 +291,25 @@ h1, h2, h3, h4 {
 .attach-list button { background: none; border: 0; color: var(--slate-dark); text-decoration: underline; cursor: pointer; font: inherit; }
 .turnstile { min-height: 65px; margin-bottom: 12px; }
 .quote-form .btn:disabled { opacity: .6; cursor: default; }
+
+/* Designer credit */
+.site-footer .credit {
+  margin-top: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  font-size: .68rem;
+  letter-spacing: .14em;
+  color: #8f8f8f;
+}
+.credit-icon { width: 16px; height: 16px; color: var(--slate); flex: none; }
+.site-footer .credit a {
+  color: #ddd;
+  text-decoration: none;
+  border-bottom: 1px solid var(--slate);
+  padding-bottom: 1px;
+  transition: color .2s, border-color .2s;
+}
+.site-footer .credit a:hover { color: #fff; border-color: #fff; }
