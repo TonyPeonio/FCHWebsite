@@ -3,11 +3,15 @@ import { createClient } from "@supabase/supabase-js";
 const url = import.meta.env.VITE_SUPABASE_URL;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!url || !anonKey) {
+/** False when the build is missing its Supabase settings (e.g. GitHub variables not added yet). */
+export const isConfigured = Boolean(url && anonKey);
+if (!isConfigured) {
   console.error("Missing VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY. Copy .env.example to .env.local.");
 }
 
-export const supabase = createClient(url, anonKey, {
+// createClient throws without a URL, which would blank the whole page; the portal shows a
+// "not set up yet" notice instead (see main.tsx), so a placeholder is never actually called.
+export const supabase = createClient(url || "https://not-configured.invalid", anonKey || "not-configured", {
   auth: { flowType: "pkce", detectSessionInUrl: true, persistSession: true },
 });
 
