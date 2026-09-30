@@ -3,7 +3,7 @@
 - **Website** (`/`): the public marketing page for [firstchoicehomesllc.org](https://firstchoicehomesllc.org).
 - **Client portal** (`/app/`): clients log in to see their project schedule, make selections
   (tile, paint, fixtures…), and view photos and documents. Staff manage one master calendar,
-  projects, selections, quote requests, and invitations.
+  projects, selections, website inquiries, and invitations.
 
 Hosted free on GitHub Pages. The backend is [Supabase](https://supabase.com) (database, logins,
 file storage, server functions). Email goes through [Resend](https://resend.com).
@@ -17,7 +17,7 @@ Browser ──> GitHub Pages (static files built by Vite)
           ├─ Postgres + Row Level Security   who can see what (enforced by the database)
           ├─ Auth                            emailed-code/link and password logins
           ├─ Storage                         plans, photos, selection uploads (private)
-          └─ Edge Functions                  sign-in emails, invites, quote emails, notifications,
+          └─ Edge Functions                  sign-in emails, invites, inquiry emails, notifications,
                  │                           calendar feed
                  └──> Resend (email)
 ```
@@ -25,7 +25,7 @@ Browser ──> GitHub Pages (static files built by Vite)
 ### Who sees what
 | | Owner | Staff | Client |
 |---|---|---|---|
-| See master calendar, all projects, quotes, files | ✓ | ✓ (view only) | – |
+| See master calendar, all projects, inquiries, files | ✓ | ✓ (view only) | – |
 | Add/change calendar events, projects, selections, files | ✓ | – | – |
 | Invite clients, add staff, change roles | ✓ | – | – |
 | Their project's schedule, selections, files | ✓ | ✓ | ✓ (own projects only) |
@@ -49,7 +49,7 @@ page (read-only, auto-updating).
 ## Project layout
 ```
 index.html                 Marketing page
-src/site/                  Marketing page CSS + JS (quote form)
+src/site/                  Marketing page CSS + JS (inquiry form)
 app/index.html             Portal entry point
 src/app/                   Portal (React): pages/, pages/admin/, components/
 src/lib/                   Supabase client, data functions (api.ts), types
@@ -73,7 +73,7 @@ npx supabase functions serve   # in a second terminal
 npm run dev                    # http://localhost:5173 (portal at /app/)
 ```
 
-- Emails (sign-in links, invites, quote notifications) are caught by Mailpit at http://localhost:54324.
+- Emails (sign-in codes, invites, inquiry notifications) are caught by Mailpit at http://localhost:54324.
 - Seeded logins are listed at the top of `supabase/seed.sql`.
 - `npx supabase db reset` rebuilds the database from migrations + seed.
 - `npx supabase test db` runs the security tests.
