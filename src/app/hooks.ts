@@ -6,7 +6,7 @@ export const useProjects = () => useQuery({ queryKey: ["projects"], queryFn: api
 export const useEvents = () => useQuery({ queryKey: ["events"], queryFn: api.fetchEvents });
 export const useSelections = (projectId?: string) =>
   useQuery({ queryKey: ["selections", projectId ?? "all"], queryFn: () => api.fetchSelections(projectId) });
-export const useDocuments = (filter: { projectId?: string; selectionId?: string } = {}) =>
+export const useDocuments = (filter: { projectId?: string; selectionId?: string; library?: boolean } = {}) =>
   useQuery({ queryKey: ["documents", filter], queryFn: () => api.fetchDocuments(filter) });
 export const usePeople = () => useQuery({ queryKey: ["people"], queryFn: api.fetchPeople });
 export const useQuotes = () => useQuery({ queryKey: ["quotes"], queryFn: api.fetchQuotes });

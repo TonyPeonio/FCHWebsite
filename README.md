@@ -115,10 +115,19 @@ npm run dev                    # http://localhost:5173 (portal at /app/)
 free projects pause after a week without activity, so move to Pro ($25/mo, includes daily backups)
 once clients are using it.
 
+**Photo storage:** photos go in Supabase file storage, shrunk to about 1.5 MB each plus a small
+thumbnail. Free includes 1 GB (roughly 650 photos); Pro includes 100 GB (roughly 65,000), then
+$0.0213 per GB per month.
+
 ## Editing the website
 - **Text:** edit `index.html`; each section has a comment.
-- **Gallery photos:** add a JPG (about 1600px wide) to `public/images/gallery/` and copy one of the
-  `<button><img …></button>` lines.
+- **Our Work photos** come from the portal, not from files in this repo:
+  1. Upload photos in *Photo dump* (owner only; works from a phone), then select them and move them
+     into a project.
+  2. Give the project a build type and city, then press *Mark completed*.
+  3. On the project's *Photos & files* tab, press *Show on website* on the photos to show.
+  The front page lists each build type that has such photos, then projects as `City-YYYY-MM-DD`
+  (served by the `public-gallery` function; changes appear within a minute).
 
 ## Ideas for later
 Change orders with e-approval · allowance tracker for selections · per-project message thread ·

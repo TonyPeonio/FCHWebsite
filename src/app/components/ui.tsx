@@ -43,24 +43,35 @@ export function ProjectDot({ color }: { color: string }) {
 
 const isImage = (d: Doc) => d.mime_type?.startsWith("image/");
 
-/** Photos render as a thumbnail grid; everything else as a download list. */
+/** Photos render as a thumbnail grid (tap for the full photo); everything else as a download list. */
 export function DocList({
   docs,
   onDelete,
   onToggleVisible,
+  onToggleWebsite,
   canDelete,
 }: {
   docs: Doc[];
   onDelete?: (d: Doc) => void;
   onToggleVisible?: (d: Doc) => void;
+  /** Only passed for completed projects: choose photos for the public "Our Work" gallery. */
+  onToggleWebsite?: (d: Doc) => void;
   canDelete?: (d: Doc) => boolean;
 }) {
-  const { data: urls = {} } = useSignedUrls("project-files", docs.map((d) => d.storage_path));
+  const { data: urls = {} } = useSignedUrls(
+    "project-files",
+    docs.flatMap((d) => (d.thumb_path ? [d.storage_path, d.thumb_path] : [d.storage_path])),
+  );
   const images = docs.filter(isImage);
   const others = docs.filter((d) => !isImage(d));
 
   const actions = (d: Doc) => (
     <span className="doc-actions">
+      {onToggleWebsite && isImage(d) && (
+        <button className="link-btn small" onClick={() => onToggleWebsite(d)}>
+          {d.show_on_website ? "Remove from website" : "Show on website"}
+        </button>
+      )}
       {onToggleVisible && (
         <button className="link-btn small" onClick={() => onToggleVisible(d)}>
           {d.client_visible ? "Hide from client" : "Show to client"}
@@ -81,7 +92,12 @@ export function DocList({
           {images.map((d) => (
             <figure key={d.id} className={d.client_visible ? "" : "internal"}>
               <a href={urls[d.storage_path]} target="_blank" rel="noopener">
-                {urls[d.storage_path] ? <img src={urls[d.storage_path]} alt={d.caption ?? d.file_name} loading="lazy" /> : <div className="img-ph" />}
+                {urls[d.thumb_path ?? d.storage_path] ? (
+                  <img src={urls[d.thumb_path ?? d.storage_path]} alt={d.caption ?? d.file_name} loading="lazy" />
+                ) : (
+                  <div className="img-ph" />
+                )}
+                {d.show_on_website && <span className="web-badge">On website</span>}
               </a>
               <figcaption>
                 {d.caption && <span>{d.caption}</span>}
@@ -141,6 +157,23 @@ export function FilePicker({ files, onChange, accept, label = "Attach files" }: 
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/** Lists uploads that failed; they stay selected so pressing Upload again retries them. */
+export function UploadFailures({ failed }: { failed: { file: File; reason: string }[] }) {
+  if (!failed.length) return null;
+  return (
+    <div className="notice error">
+      {failed.length === 1 ? "1 file" : `${failed.length} files`} didn't upload. They're still selected, so you can try again.
+      <ul>
+        {failed.map((f, i) => (
+          <li key={i}>
+            {f.file.name}: {f.reason}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

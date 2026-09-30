@@ -2,8 +2,8 @@ import { useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as api from "../../../lib/api";
-import { DOC_KIND_LABEL, type DocumentKind } from "../../../lib/types";
-import { DocList, Empty, ErrorNote, FilePicker, Modal, ProjectDot, StatusBadge } from "../../components/ui";
+import { CATEGORY_LABEL, DOC_KIND_LABEL, type Doc, type DocumentKind, type Project } from "../../../lib/types";
+import { DocList, Empty, ErrorNote, FilePicker, Modal, ProjectDot, StatusBadge, UploadFailures } from "../../components/ui";
 import { useAuth } from "../../auth";
 import { byId, fmtDate, fmtEventWhen, upcoming, useDocuments, useEvents, usePeople, useProjects, useSelections } from "../../hooks";
 import { draftFrom, EventEditor } from "./MasterCalendar";
@@ -18,6 +18,16 @@ export function ProjectDetail() {
   const [tab, setTab] = useState<Tab>("overview");
   const [editing, setEditing] = useState(false);
   const { isOwner } = useAuth();
+  const qc = useQueryClient();
+  const setCompleted = useMutation({
+    mutationFn: (done: boolean) =>
+      api.saveProject(
+        done
+          ? { id, status: "complete", completed_on: new Date().toLocaleDateString("en-CA") }
+          : { id, status: "active", completed_on: null },
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["projects"] }),
+  });
 
   if (!project) return <div className="page">{projects.isLoading ? "Loading…" : "Project not found."}</div>;
 
@@ -31,16 +41,25 @@ export function ProjectDetail() {
           <ProjectDot color={project.color} /> {project.name}
         </h1>
         {isOwner && (
-          <button className="btn" onClick={() => setEditing(true)}>
-            Edit
-          </button>
+          <div className="btn-row">
+            <button className="btn" disabled={setCompleted.isPending} onClick={() => setCompleted.mutate(project.status !== "complete")}>
+              {project.status === "complete" ? "Reopen" : "Mark completed"}
+            </button>
+            <button className="btn" onClick={() => setEditing(true)}>
+              Edit
+            </button>
+          </div>
         )}
       </div>
       <p className="muted">
+        {project.category && <>{CATEGORY_LABEL[project.category]} · </>}
         {project.address && <>{project.address} · </>}
         {STATUS_OPTIONS.find((s) => s.value === project.status)?.label}
-        {project.target_completion && <> · Target {fmtDate(project.target_completion)}</>}
+        {project.status === "complete"
+          ? project.completed_on && <> {fmtDate(project.completed_on)}</>
+          : project.target_completion && <> · Target {fmtDate(project.target_completion)}</>}
       </p>
+      <ErrorNote error={setCompleted.error} />
 
       <div className="tabs" role="tablist">
         {(["overview", "selections", "files", "clients"] as Tab[]).map((t) => (
@@ -52,7 +71,7 @@ export function ProjectDetail() {
 
       {tab === "overview" && <Overview projectId={id} />}
       {tab === "selections" && <SelectionsTab projectId={id} />}
-      {tab === "files" && <FilesTab projectId={id} />}
+      {tab === "files" && <FilesTab project={project} />}
       {tab === "clients" && <ClientsTab projectId={id} />}
 
       {editing && <ProjectForm project={project} onClose={() => setEditing(false)} />}
@@ -206,7 +225,8 @@ function NewSelection({ projectId, onClose }: { projectId: string; onClose: () =
 
 const STAFF_KINDS: DocumentKind[] = ["photo", "plan", "permit", "contract", "other"];
 
-function FilesTab({ projectId }: { projectId: string }) {
+function FilesTab({ project }: { project: Project }) {
+  const projectId = project.id;
   const qc = useQueryClient();
   const docs = useDocuments({ projectId });
   const [files, setFiles] = useState<File[]>([]);
@@ -217,20 +237,28 @@ function FilesTab({ projectId }: { projectId: string }) {
   const refresh = () => qc.invalidateQueries({ queryKey: ["documents"] });
   const { isOwner } = useAuth();
 
+  const [failed, setFailed] = useState<api.UploadFailure[]>([]);
   const upload = useMutation({
     mutationFn: async () => {
       setDone(0);
-      for (const file of files) {
-        await api.uploadToProject(file, { projectId, folder: "docs", kind, caption, clientVisible });
-        setDone((n) => n + 1);
-      }
+      return api.uploadAll(
+        files,
+        (file) => api.uploadToProject(file, { projectId, folder: "docs", kind, caption, clientVisible }),
+        () => setDone((n) => n + 1),
+      );
     },
-    onSuccess: () => {
-      setFiles([]);
-      setCaption("");
+    onSuccess: (failures) => {
+      setFailed(failures);
+      setFiles(failures.map((f) => f.file));
+      if (!failures.length) setCaption("");
       refresh();
     },
   });
+  const website = useMutation({
+    mutationFn: (d: Doc) => api.setShowOnWebsite(d.id, !d.show_on_website),
+    onSuccess: refresh,
+  });
+  const completed = project.status === "complete";
   const remove = useMutation({ mutationFn: api.deleteDocument, onSuccess: refresh });
   const toggle = useMutation({
     mutationFn: (d: { id: string; client_visible: boolean }) => api.setDocumentVisibility(d.id, !d.client_visible),
@@ -242,7 +270,13 @@ function FilesTab({ projectId }: { projectId: string }) {
       {isOwner && (
       <section className="card">
         <h2>Upload</h2>
-        <FilePicker files={files} onChange={setFiles} />
+        <FilePicker
+          files={files}
+          onChange={(f) => {
+            setFiles(f);
+            setFailed([]);
+          }}
+        />
         {files.length > 0 && (
           <>
             <div className="grid-2 tight">
@@ -269,8 +303,12 @@ function FilesTab({ projectId }: { projectId: string }) {
             </button>
           </>
         )}
-        <ErrorNote error={upload.error ?? remove.error ?? toggle.error} />
+        <UploadFailures failed={failed} />
+        <ErrorNote error={upload.error ?? remove.error ?? toggle.error ?? website.error} />
       </section>
+      )}
+      {isOwner && completed && (!project.city || !project.category) && (
+        <p className="notice warn">Add a city and build type (Edit) so this project's photos can appear on the website.</p>
       )}
       {(docs.data?.length ?? 0) === 0 && <Empty>No photos or files yet.</Empty>}
 
@@ -280,10 +318,14 @@ function FilesTab({ projectId }: { projectId: string }) {
         return (
           <section key={k} className="card">
             <h2>{DOC_KIND_LABEL[k]}</h2>
+            {k === "photo" && isOwner && !completed && (
+              <p className="muted small">Mark the project completed to choose photos for the website.</p>
+            )}
             <DocList
               docs={group}
               onDelete={isOwner ? (d) => remove.mutate(d) : undefined}
               onToggleVisible={isOwner ? (d) => toggle.mutate(d) : undefined}
+              onToggleWebsite={isOwner && completed ? (d) => website.mutate(d) : undefined}
             />
           </section>
         );

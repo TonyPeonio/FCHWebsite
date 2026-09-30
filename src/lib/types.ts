@@ -3,6 +3,7 @@ export type ProjectStatus = "planning" | "active" | "on_hold" | "complete";
 export type SelectionStatus = "requested" | "submitted" | "approved" | "revision_requested";
 export type DocumentKind = "plan" | "permit" | "contract" | "photo" | "selection" | "other";
 export type QuoteStatus = "draft" | "new" | "contacted" | "converted" | "declined";
+export type ProjectCategory = "new_construction" | "shop" | "remodel" | "adu" | "multi_family" | "commercial";
 
 export interface Profile {
   id: string;
@@ -21,6 +22,10 @@ export interface Project {
   color: string;
   start_date: string | null;
   target_completion: string | null;
+  category: ProjectCategory | null;
+  city: string | null;
+  /** Set by "Mark completed"; with the city, labels the project on the public website. */
+  completed_on: string | null;
 }
 
 export interface CalEvent {
@@ -62,7 +67,8 @@ export interface Selection {
 
 export interface Doc {
   id: string;
-  project_id: string;
+  /** Null while the photo sits in the owner's photo dump. */
+  project_id: string | null;
   selection_id: string | null;
   uploaded_by: string | null;
   storage_path: string;
@@ -72,6 +78,9 @@ export interface Doc {
   kind: DocumentKind;
   caption: string | null;
   client_visible: boolean;
+  /** Shown in the public "Our Work" gallery (completed projects only). */
+  show_on_website: boolean;
+  thumb_path: string | null;
   created_at: string;
 }
 
@@ -126,6 +135,15 @@ export const SELECTION_STATUS_LABEL_CLIENT: Record<SelectionStatus, string> = {
   submitted: "Submitted",
   approved: "Approved",
   revision_requested: "Changes requested",
+};
+
+export const CATEGORY_LABEL: Record<ProjectCategory, string> = {
+  new_construction: "New construction homes",
+  shop: "Shops",
+  remodel: "Remodels",
+  adu: "ADUs",
+  multi_family: "Multi-family",
+  commercial: "Commercial",
 };
 
 export const DOC_KIND_LABEL: Record<DocumentKind, string> = {

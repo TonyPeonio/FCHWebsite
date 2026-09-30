@@ -13,14 +13,15 @@ const staffNav = [
   { to: "/admin", label: "Overview", end: true },
   { to: "/admin/calendar", label: "Master Calendar" },
   { to: "/admin/projects", label: "Projects" },
+  { to: "/admin/photos", label: "Photo dump", ownerOnly: true },
   { to: "/admin/quotes", label: "Inquiries" },
   { to: "/admin/people", label: "People" },
 ];
 
 export function Layout({ children }: { children: ReactNode }) {
-  const { isStaff, profile, signOut } = useAuth();
+  const { isStaff, isOwner, profile, signOut } = useAuth();
   const [open, setOpen] = useState(false);
-  const nav = isStaff ? staffNav : clientNav;
+  const nav = isStaff ? staffNav.filter((n) => isOwner || !n.ownerOnly) : clientNav;
 
   return (
     <div className="shell">

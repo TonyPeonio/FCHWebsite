@@ -84,19 +84,61 @@ const safeName = (name: string) =>
   name.normalize("NFKD").replace(/[^\w.\-]+/g, "_").replace(/_+/g, "_").slice(-100) || "file";
 
 const SHRINKABLE = ["image/jpeg", "image/png", "image/webp"];
+const BUCKET = "project-files";
+const UPLOAD_TIMEOUT_MS = 3 * 60_000;
+const MAX_FILE_BYTES = 50 * 1024 * 1024; // the project-files bucket limit
+
+/** Rejects if `promise` hasn't settled in time: a stalled phone upload would otherwise wait forever. */
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return Promise.race([promise, new Promise<never>((_, reject) => setTimeout(() => reject(new Error(message)), ms))]);
+}
 
 /**
- * Shrinks big photos before upload; on any trouble, uploads the original (the bucket takes 50 MB).
+ * Resizes an image, or gives null on any trouble or after 20 s so callers can fall back.
  * No web worker: the library's worker loads a script from a CDN and never reports it if the worker
- * dies, which left phone uploads stuck on "Uploading…" forever. HEIC and other formats many
- * browsers can't decode are sent as they are.
+ * dies, which left phone uploads stuck on "Uploading…" forever.
  */
+function resize(file: File, maxSizeMB: number, maxWidthOrHeight: number, fileType?: string): Promise<Blob | null> {
+  const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 20_000));
+  const out = imageCompression(file, { maxSizeMB, maxWidthOrHeight, useWebWorker: false, fileType }).catch(() => null);
+  return Promise.race([out, timeout]);
+}
+
+/** Shrinks big photos before upload; otherwise uploads the original (the bucket takes 50 MB). */
 async function shrinkIfImage(file: File): Promise<File> {
   if (!SHRINKABLE.includes(file.type) || file.size < 1_000_000) return file;
-  const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 20_000));
-  const shrunk = imageCompression(file, { maxSizeMB: 1.5, maxWidthOrHeight: 2400, useWebWorker: false }).catch(() => null);
-  const out = await Promise.race([shrunk, timeout]);
+  const out = await resize(file, 1.5, 2400);
   return out ? new File([out], file.name, { type: out.type }) : file;
+}
+
+/**
+ * Uploads a file under `folder`, plus a small thumbnail for photos so grids load quickly on phones.
+ * HEIC and other formats many browsers can't decode go up as they are, without a thumbnail.
+ */
+async function storeFile(file: File, folder: string) {
+  const upload = await shrinkIfImage(file);
+  // Checked here so a phone doesn't spend minutes sending a file the server will refuse.
+  if (upload.size > MAX_FILE_BYTES) throw new Error("It's larger than 50 MB");
+  const thumb =SHRINKABLE.includes(upload.type) ? await resize(upload, 0.06, 480, "image/jpeg") : null;
+  const id = crypto.randomUUID();
+  const path = `${folder}/${id}-${safeName(file.name)}`;
+  const bucket = supabase.storage.from(BUCKET);
+  check(
+    await withTimeout(
+      bucket.upload(path, upload, { contentType: upload.type }),
+      UPLOAD_TIMEOUT_MS,
+      "The upload took too long. Check your connection and try again",
+    ),
+  );
+  let thumbPath: string | null = thumb ? `${folder}/thumbs/${id}.jpg` : null;
+  if (thumb && thumbPath) {
+    // Without a thumbnail the grid just shows the full photo.
+    const { error } = await bucket.upload(thumbPath, thumb, { contentType: "image/jpeg" });
+    if (error) thumbPath = null;
+  }
+  const row = { storage_path: path, thumb_path: thumbPath, file_name: file.name, mime_type: upload.type || null, size_bytes: upload.size };
+  const discard = () => bucket.remove([path, ...(thumbPath ? [thumbPath] : [])]);
+  return { path, row, discard };
 }
 
 export async function uploadToProject(
@@ -111,32 +153,85 @@ export async function uploadToProject(
     track?: boolean; // insert a documents row (false for selection option images)
   },
 ): Promise<string> {
-  const upload = await shrinkIfImage(file);
-  const path = `${opts.projectId}/${opts.folder}/${crypto.randomUUID()}-${safeName(file.name)}`;
-  check(await supabase.storage.from("project-files").upload(path, upload, { contentType: upload.type }));
+  const { path, row, discard } = await storeFile(file, `${opts.projectId}/${opts.folder}`);
 
   if (opts.track !== false) {
     const { error } = await supabase.from("documents").insert({
+      ...row,
       project_id: opts.projectId,
       selection_id: opts.selectionId ?? null,
-      storage_path: path,
-      file_name: file.name,
-      mime_type: upload.type || null,
-      size_bytes: upload.size,
       kind: opts.kind ?? "other",
       caption: opts.caption || null,
       client_visible: opts.clientVisible ?? true,
     });
     if (error) {
-      await supabase.storage.from("project-files").remove([path]);
+      await discard();
       throw new Error(error.message);
     }
   }
   return path;
 }
 
-export async function fetchDocuments(filter: { projectId?: string; selectionId?: string } = {}): Promise<Doc[]> {
+export interface UploadFailure {
+  file: File;
+  reason: string;
+}
+
+/** Uploads files one at a time, carrying on past any that fail; returns the failures and why. */
+export async function uploadAll(files: File[], upload: (file: File) => Promise<unknown>, onEach: () => void) {
+  const failed: UploadFailure[] = [];
+  for (const file of files) {
+    try {
+      await upload(file);
+    } catch (err) {
+      failed.push({ file, reason: err instanceof Error ? err.message : String(err) });
+    }
+    onEach();
+  }
+  return failed;
+}
+
+/** Adds a photo to the owner's photo dump (no project yet). */
+export async function uploadToLibrary(file: File) {
+  const { row, discard } = await storeFile(file, "library");
+  const { error } = await supabase.from("documents").insert({ ...row, project_id: null, kind: "photo" });
+  if (error) {
+    await discard();
+    throw new Error(error.message);
+  }
+}
+
+/** Moves a photo-dump photo (and its thumbnail) into a project's files. */
+export async function assignPhoto(doc: Doc, projectId: string) {
+  const bucket = supabase.storage.from(BUCKET);
+  const to = `${projectId}/docs/${doc.storage_path.split("/").pop()}`;
+  check(await bucket.move(doc.storage_path, to));
+
+  let thumbTo: string | null = null;
+  if (doc.thumb_path) {
+    thumbTo = `${projectId}/docs/thumbs/${doc.thumb_path.split("/").pop()}`;
+    if ((await bucket.move(doc.thumb_path, thumbTo)).error) {
+      await bucket.remove([doc.thumb_path]);
+      thumbTo = null;
+    }
+  }
+
+  const { error } = await supabase
+    .from("documents")
+    .update({ project_id: projectId, storage_path: to, thumb_path: thumbTo })
+    .eq("id", doc.id);
+  if (error) {
+    // Put the files back so the photo stays in the dump.
+    await bucket.move(to, doc.storage_path);
+    if (thumbTo && doc.thumb_path) await bucket.move(thumbTo, doc.thumb_path);
+    throw new Error(error.message);
+  }
+}
+
+export async function fetchDocuments(filter: { projectId?: string; selectionId?: string; library?: boolean } = {}): Promise<Doc[]> {
   let q = supabase.from("documents").select("*").order("created_at", { ascending: false });
+  // The owner's photo-dump rows have no project; only the photo dump asks for them.
+  q = filter.library ? q.is("project_id", null) : q.not("project_id", "is", null);
   if (filter.projectId) q = q.eq("project_id", filter.projectId);
   if (filter.selectionId) q = q.eq("selection_id", filter.selectionId);
   return check(await q);
@@ -144,11 +239,15 @@ export async function fetchDocuments(filter: { projectId?: string; selectionId?:
 
 export async function deleteDocument(doc: Doc) {
   check(await supabase.from("documents").delete().eq("id", doc.id));
-  await supabase.storage.from("project-files").remove([doc.storage_path]);
+  await supabase.storage.from(BUCKET).remove([doc.storage_path, ...(doc.thumb_path ? [doc.thumb_path] : [])]);
 }
 
 export async function setDocumentVisibility(id: string, client_visible: boolean) {
   check(await supabase.from("documents").update({ client_visible }).eq("id", id));
+}
+
+export async function setShowOnWebsite(id: string, show_on_website: boolean) {
+  check(await supabase.from("documents").update({ show_on_website }).eq("id", id));
 }
 
 /** Returns a map of storage path -> short-lived signed URL. */

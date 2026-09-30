@@ -12,6 +12,12 @@ export const env = {
   siteUrl: (Deno.env.get("SITE_URL") ?? "https://firstchoicehomesllc.org").replace(/\/$/, ""),
 };
 
+/** Locally, SUPABASE_URL is Docker's internal address; links for browsers need the reachable one. */
+export function publicUrl(url: string): string {
+  const external = Deno.env.get("PUBLIC_SUPABASE_URL");
+  return external ? url.replace(Deno.env.get("SUPABASE_URL")!, external.replace(/\/$/, "")) : url;
+}
+
 export function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,

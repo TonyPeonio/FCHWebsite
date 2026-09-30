@@ -18,10 +18,11 @@ const MasterCalendar = named(() => import("./pages/admin/MasterCalendar"), "Mast
 const Projects = named(() => import("./pages/admin/Projects"), "Projects");
 const ProjectDetail = named(() => import("./pages/admin/ProjectDetail"), "ProjectDetail");
 const Quotes = named(() => import("./pages/admin/Quotes"), "Quotes");
+const PhotoDump = named(() => import("./pages/admin/PhotoDump"), "PhotoDump");
 const People = named(() => import("./pages/admin/People"), "People");
 
 export function App() {
-  const { loading, session, isStaff } = useAuth();
+  const { loading, session, isStaff, isOwner } = useAuth();
 
   if (loading) return <div className="page-loading">Loading…</div>;
   if (!session) return <Login />;
@@ -38,6 +39,7 @@ export function App() {
             <Route path="/admin/projects" element={<Projects />} />
             <Route path="/admin/projects/:id" element={<ProjectDetail />} />
             <Route path="/admin/quotes" element={<Quotes />} />
+            {isOwner && <Route path="/admin/photos" element={<PhotoDump />} />}
             <Route path="/admin/people" element={<People />} />
           </>
         ) : (

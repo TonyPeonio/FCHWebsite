@@ -15,6 +15,17 @@ insert into public.documents (project_id, storage_path, file_name, kind, client_
   ('10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001/docs/hidden.pdf', 'hidden.pdf', 'contract', false),
   ('10000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000002/docs/jones.pdf', 'jones.pdf', 'plan', true);
 
+-- Thumbnails for the P1 files, and a photo in the owner's photo dump (library/, no project).
+insert into storage.objects (bucket_id, name) values
+  ('project-files', '10000000-0000-0000-0000-000000000001/docs/thumbs/visible.jpg'),
+  ('project-files', '10000000-0000-0000-0000-000000000001/docs/thumbs/hidden.jpg'),
+  ('project-files', 'library/dump.jpg'),
+  ('project-files', 'library/thumbs/dump.jpg');
+update public.documents set thumb_path = '10000000-0000-0000-0000-000000000001/docs/thumbs/visible.jpg' where file_name = 'visible.pdf';
+update public.documents set thumb_path = '10000000-0000-0000-0000-000000000001/docs/thumbs/hidden.jpg' where file_name = 'hidden.pdf';
+insert into public.documents (project_id, storage_path, thumb_path, file_name, kind) values
+  (null, 'library/dump.jpg', 'library/thumbs/dump.jpg', 'dump.jpg', 'photo');
+
 create function pg_temp.login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims',
     json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -37,9 +48,12 @@ select is((select count(*) from quote_requests), 0::bigint, 'Clients cannot read
 select is((select count(*) from profiles), 1::bigint, 'Clients see only their own profile');
 select results_eq($$ select file_name from documents $$, $$ values ('visible.pdf') $$, 'Smith sees only client-visible docs in P1');
 select results_eq(
-  $$ select name from storage.objects where bucket_id = 'project-files' $$,
-  $$ values ('10000000-0000-0000-0000-000000000001/docs/visible.pdf') $$,
-  'Storage: Smith can only download client-visible files from his project');
+  $$ select name from storage.objects where bucket_id = 'project-files' order by name $$,
+  $$ values ('10000000-0000-0000-0000-000000000001/docs/thumbs/visible.jpg'), ('10000000-0000-0000-0000-000000000001/docs/visible.pdf') $$,
+  'Storage: Smith can only download client-visible files (and their thumbnails) from his project');
+select throws_ok(
+  $$ insert into documents (project_id, storage_path, file_name, kind) values (null, 'library/mine.jpg', 'mine.jpg', 'photo') $$,
+  '42501', null, 'Clients cannot add to the photo dump');
 
 update selections set status = 'approved';
 select is((select status::text from selections where id = '30000000-0000-0000-0000-000000000001'), 'requested',
@@ -93,7 +107,8 @@ select is(is_staff(), true, 'Staff accounts are staff');
 select is((select count(*) from projects), 3::bigint, 'Staff see all projects');
 select is((select count(*) from events), 5::bigint, 'Staff see all events, including staff-only');
 select is((select count(*) from quote_requests), 1::bigint, 'Staff see quote requests');
-select is((select count(*) from documents), 4::bigint, 'Staff see all documents');
+select is((select count(*) from documents), 4::bigint, 'Staff see all project documents but not the photo dump');
+select is((select count(*) from storage.objects where name like 'library/%'), 0::bigint, 'Staff cannot download photo-dump files');
 -- Staff are view-only.
 select throws_ok($$ select decide_selection('30000000-0000-0000-0000-000000000001', true) $$, '42501', null,
   'Staff cannot approve selections');
@@ -113,6 +128,8 @@ update quote_requests set status = 'declined';
 select is((select count(*) from quote_requests where status = 'declined'), 0::bigint, 'Staff cannot change quote status');
 update documents set client_visible = true;
 select is((select count(*) from documents where not client_visible), 1::bigint, 'Staff cannot change file visibility');
+update documents set show_on_website = true;
+select is((select count(*) from documents where show_on_website), 0::bigint, 'Staff cannot put photos on the website');
 select throws_ok(
   $$ insert into storage.objects (bucket_id, name) values ('project-files', '10000000-0000-0000-0000-000000000001/docs/x.pdf') $$,
   '42501', null, 'Staff cannot upload files');
@@ -128,6 +145,16 @@ select lives_ok($$ update events set title = 'Framing inspection (moved)' where 
 select is((select title from events where id = '20000000-0000-0000-0000-000000000001'), 'Framing inspection (moved)', 'Owner edit saved');
 select lives_ok($$ select decide_selection('30000000-0000-0000-0000-000000000001', true, 'Ordering it') $$, 'Owner can approve selections');
 select lives_ok($$ insert into projects (name) values ('Owner project') $$, 'Owner can create projects');
+select is((select count(*) from documents where project_id is null), 1::bigint, 'Owner sees the photo dump');
+select is((select count(*) from storage.objects where name like 'library/%'), 2::bigint, 'Owner can download photo-dump files');
+select lives_ok(
+  $$ update documents set project_id = '10000000-0000-0000-0000-000000000001',
+       storage_path = '10000000-0000-0000-0000-000000000001/docs/dump.jpg', show_on_website = true
+     where storage_path = 'library/dump.jpg' $$,
+  'Owner can assign a photo to a project and put it on the website');
+select throws_ok(
+  $$ update documents set project_id = '10000000-0000-0000-0000-000000000002' where file_name = 'dump.jpg' $$,
+  '23514', null, 'A photo''s file path must match its project');
 select lives_ok($$ select set_user_role('00000000-0000-0000-0000-0000000000c3', 'staff') $$, 'Owner can change roles');
 select throws_ok($$ select set_user_role(auth.uid(), 'client') $$, 'P0001', null, 'Owner cannot demote themselves');
 
@@ -137,6 +164,7 @@ set local role anon;
 select set_config('request.jwt.claims', '{"role":"anon"}', true);
 select is((select count(*) from projects), 0::bigint, 'Anonymous users see nothing');
 select is((select count(*) from events), 0::bigint, 'Anonymous users see no events');
+select is((select count(*) from documents), 0::bigint, 'Anonymous users see no photos, even ones on the website');
 select throws_ok($$ insert into quote_requests (email) values ('x@y.z') $$, '42501', null,
   'Anonymous users cannot write quotes directly (only through the edge function)');
 

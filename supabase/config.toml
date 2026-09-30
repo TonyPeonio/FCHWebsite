@@ -439,6 +439,9 @@ verify_jwt = false
 [functions.send-sign-in-email]
 verify_jwt = false
 
+[functions.public-gallery]
+verify_jwt = false
+
 [functions.notify]
 verify_jwt = false
 

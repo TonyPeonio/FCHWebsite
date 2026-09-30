@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as api from "../../../lib/api";
-import type { Project, ProjectStatus } from "../../../lib/types";
+import { CATEGORY_LABEL, type Project, type ProjectCategory, type ProjectStatus } from "../../../lib/types";
 import { ErrorNote, Modal, ProjectDot } from "../../components/ui";
 import { useAuth } from "../../auth";
 import { fmtDate, usePeople, useProjects, useSelections } from "../../hooks";
@@ -26,8 +26,11 @@ export function ProjectForm({ project, onClose }: { project?: Project; onClose: 
       api.saveProject({
         ...p,
         address: p.address || null,
+        city: p.city?.trim() || null,
         start_date: p.start_date || null,
         target_completion: p.target_completion || null,
+        // Completed projects always have a date: with the city it labels them on the website.
+        completed_on: p.status === "complete" ? p.completed_on || new Date().toLocaleDateString("en-CA") : null,
       }),
     onSuccess: (saved) => {
       qc.invalidateQueries({ queryKey: ["projects"] });
@@ -53,6 +56,25 @@ export function ProjectForm({ project, onClose }: { project?: Project; onClose: 
         </label>
         <div className="grid-2 tight">
           <label>
+            Build type
+            <select required value={p.category ?? ""} onChange={(e) => setP({ ...p, category: e.target.value as ProjectCategory })}>
+              <option value="" disabled>
+                Choose…
+              </option>
+              {(Object.keys(CATEGORY_LABEL) as ProjectCategory[]).map((c) => (
+                <option key={c} value={c}>
+                  {CATEGORY_LABEL[c]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            City
+            <input value={p.city ?? ""} onChange={(e) => setP({ ...p, city: e.target.value })} placeholder="e.g. Kalama" />
+          </label>
+        </div>
+        <div className="grid-2 tight">
+          <label>
             Status
             <select value={p.status} onChange={(e) => setP({ ...p, status: e.target.value as ProjectStatus })}>
               {STATUS_OPTIONS.map((s) => (
@@ -74,6 +96,12 @@ export function ProjectForm({ project, onClose }: { project?: Project; onClose: 
             Target completion
             <input type="date" value={p.target_completion ?? ""} onChange={(e) => setP({ ...p, target_completion: e.target.value })} />
           </label>
+          {p.status === "complete" && (
+            <label>
+              Completed on
+              <input type="date" value={p.completed_on ?? ""} onChange={(e) => setP({ ...p, completed_on: e.target.value })} />
+            </label>
+          )}
         </div>
         <button className="btn primary" disabled={save.isPending}>
           Save
@@ -127,7 +155,7 @@ export function Projects() {
               <tr key={p.id}>
                 <td>
                   <ProjectDot color={p.color} /> <Link to={`/admin/projects/${p.id}`}>{p.name}</Link>
-                  {p.address && <div className="muted small">{p.address}</div>}
+                  <div className="muted small">{[p.category && CATEGORY_LABEL[p.category], p.address].filter(Boolean).join(" · ")}</div>
                 </td>
                 <td>{STATUS_OPTIONS.find((s) => s.value === p.status)?.label}</td>
                 <td>{clientsOf(p.id).map((c) => c.full_name || c.email).join(", ") || <span className="muted">—</span>}</td>
