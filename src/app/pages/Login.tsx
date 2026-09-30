@@ -1,12 +1,14 @@
 import { useState, type FormEvent } from "react";
-import { portalUrl, supabase } from "../../lib/supabase";
+import { linkError, portalUrl, supabase } from "../../lib/supabase";
 
 export function Login() {
   const [mode, setMode] = useState<"link" | "password">("link");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
+    linkError ? { ok: false, text: linkError } : null,
+  );
 
   async function submit(e: FormEvent) {
     e.preventDefault();
