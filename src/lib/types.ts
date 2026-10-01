@@ -106,24 +106,11 @@ export interface PersonRow extends Profile {
   project_members: { project_id: string }[];
 }
 
-export const EVENT_CATEGORIES = [
-  "Site work",
-  "Foundation",
-  "Framing",
-  "Roofing",
-  "Plumbing",
-  "Electrical",
-  "HVAC",
-  "Insulation",
-  "Drywall",
-  "Finish work",
-  "Inspection",
-  "Delivery",
-  "Meeting",
-  "Demolition",
-  "Office",
-  "Internal",
-];
+/** A calendar event category; the owner manages the list (events store the name). */
+export interface EventCategory {
+  id: number;
+  name: string;
+}
 
 export const SELECTION_STATUS_LABEL: Record<SelectionStatus, string> = {
   requested: "Waiting on client",

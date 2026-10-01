@@ -3,6 +3,7 @@ import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 import type {
   CalendarProject,
+  EventCategory,
   CalEvent,
   Doc,
   DocumentKind,
@@ -33,6 +34,21 @@ export async function callFunction<T = unknown>(name: string, body: unknown): Pr
 }
 
 // ---------------------------------------------------------------- projects
+// ---------------------------------------------------------------- calendar categories
+export async function fetchEventCategories(): Promise<EventCategory[]> {
+  return check(await supabase.from("event_categories").select("id, name").order("id"));
+}
+
+export async function addEventCategory(name: string): Promise<EventCategory> {
+  const { data, error } = await supabase.from("event_categories").insert({ name: name.trim() }).select("id, name").single();
+  if (error) throw new Error(error.code === "23505" ? `"${name.trim()}" is already a category.` : error.message);
+  return data;
+}
+
+export async function deleteEventCategory(id: number) {
+  check(await supabase.from("event_categories").delete().eq("id", id));
+}
+
 /** Project names and colors for labeling calendar events (staff can't read projects themselves). */
 export async function fetchCalendarProjects(): Promise<CalendarProject[]> {
   return check(await supabase.rpc("calendar_projects"));

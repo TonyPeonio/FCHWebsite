@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as api from "../../../lib/api";
-import { EVENT_CATEGORIES, type CalEvent, type CalendarProject } from "../../../lib/types";
+import type { CalEvent, CalendarProject, EventCategory } from "../../../lib/types";
 import { ScheduleCalendar } from "../../components/ScheduleCalendar";
 import { ErrorNote, Modal, ProjectDot } from "../../components/ui";
-import { allDayDate, allDayIso, byId, fmtEventWhen, useCalendarProjects, useEvents } from "../../hooks";
+import { allDayDate, allDayIso, byId, fmtEventWhen, useCalendarProjects, useEventCategories, useEvents } from "../../hooks";
 import { useAuth } from "../../auth";
+
+const NEW_CATEGORY = "+new"; // select value for "+ New category…"; names are trimmed text, so it won't clash in practice
 
 // <input type="datetime-local"> works in local time without a timezone suffix.
 const toLocalInput = (iso: string) => {
@@ -94,6 +96,20 @@ export function EventEditor({ initial, projects, onClose }: { initial: Draft; pr
   });
   const remove = useMutation({ mutationFn: () => api.deleteEvent(d.id!), onSuccess: done });
 
+  const categories = useEventCategories();
+  const [newCategory, setNewCategory] = useState<string | null>(null); // null = not adding one
+  const addCategory = useMutation({
+    mutationFn: () => api.addEventCategory(newCategory ?? ""),
+    onSuccess: (c) => {
+      qc.invalidateQueries({ queryKey: ["event-categories"] });
+      set("category", c.name);
+      setNewCategory(null);
+    },
+  });
+  const names = (categories.data ?? []).map((c) => c.name);
+  // An event can still use a category that has since been removed from the list.
+  const categoryOptions = d.category && !names.includes(d.category) ? [...names, d.category] : names;
+
   function toggleProject(id: string) {
     set("projectIds", d.projectIds.includes(id) ? d.projectIds.filter((p) => p !== id) : [...d.projectIds, id]);
   }
@@ -155,13 +171,46 @@ export function EventEditor({ initial, projects, onClose }: { initial: Draft; pr
 
         <label>
           Category
-          <select value={d.category} onChange={(e) => set("category", e.target.value)}>
+          <select
+            value={newCategory !== null ? NEW_CATEGORY : d.category}
+            onChange={(e) => {
+              if (e.target.value === NEW_CATEGORY) return setNewCategory("");
+              setNewCategory(null);
+              set("category", e.target.value);
+            }}
+          >
             <option value="">—</option>
-            {EVENT_CATEGORIES.map((c) => (
+            {categoryOptions.map((c) => (
               <option key={c}>{c}</option>
             ))}
+            <option value={NEW_CATEGORY}>+ New category…</option>
           </select>
         </label>
+        {newCategory !== null && (
+          <div className="inline-add">
+            <input
+              autoFocus
+              aria-label="New category name"
+              maxLength={40}
+              placeholder="e.g. Landscaping"
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
+              onKeyDown={(e) => {
+                // Enter adds the category instead of saving the whole event.
+                if (e.key !== "Enter") return;
+                e.preventDefault();
+                if (newCategory.trim()) addCategory.mutate();
+              }}
+            />
+            <button type="button" className="btn" disabled={!newCategory.trim() || addCategory.isPending} onClick={() => addCategory.mutate()}>
+              Add
+            </button>
+            <button type="button" className="link-btn small" onClick={() => setNewCategory(null)}>
+              Cancel
+            </button>
+          </div>
+        )}
+        <ErrorNote error={addCategory.error} />
 
         <label>
           Notes {d.clientVisible && d.projectIds.length > 0 && <small className="muted">(clients can read these)</small>}
@@ -198,6 +247,7 @@ export function MasterCalendar() {
   const [showInternal, setShowInternal] = useState(true);
   const [editing, setEditing] = useState<Draft | null>(null);
   const [viewing, setViewing] = useState<CalEvent | null>(null);
+  const [managing, setManaging] = useState(false);
   // Staff can view the calendar; only owners can change it.
   const { isOwner } = useAuth();
 
@@ -231,9 +281,14 @@ export function MasterCalendar() {
       <div className="title-row">
         <h1>Master calendar</h1>
         {isOwner && (
-          <button className="btn primary" onClick={() => setEditing(draftFrom(null))}>
-            + New event
-          </button>
+          <div className="btn-row">
+            <button className="btn" onClick={() => setManaging(true)}>
+              Categories
+            </button>
+            <button className="btn primary" onClick={() => setEditing(draftFrom(null))}>
+              + New event
+            </button>
+          </div>
         )}
       </div>
       <div className="chips filter">
@@ -267,6 +322,7 @@ export function MasterCalendar() {
       <ErrorNote error={move.error} />
 
       {editing && <EventEditor initial={editing} projects={projects.data ?? []} onClose={() => setEditing(null)} />}
+      {managing && <CategoryManager onClose={() => setManaging(false)} />}
       {viewing && (
         <Modal title={viewing.title} onClose={() => setViewing(null)}>
           <p>
@@ -285,3 +341,48 @@ export function MasterCalendar() {
 }
 
 export { draftFrom };
+
+/** Owner-only: add the calendar's event categories or remove ones no longer needed. */
+function CategoryManager({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient();
+  const categories = useEventCategories();
+  const [name, setName] = useState("");
+  const refresh = () => qc.invalidateQueries({ queryKey: ["event-categories"] });
+  const add = useMutation({
+    mutationFn: () => api.addEventCategory(name),
+    onSuccess: () => {
+      setName("");
+      refresh();
+    },
+  });
+  const remove = useMutation({ mutationFn: (c: EventCategory) => api.deleteEventCategory(c.id), onSuccess: refresh });
+
+  return (
+    <Modal title="Calendar categories" onClose={onClose}>
+      <p className="muted small">Pick these when adding events. Removing one doesn't change events that already use it.</p>
+      <form
+        className="inline-add"
+        onSubmit={(e: FormEvent) => {
+          e.preventDefault();
+          if (name.trim()) add.mutate();
+        }}
+      >
+        <input aria-label="New category name" maxLength={40} placeholder="New category, e.g. Landscaping" value={name} onChange={(e) => setName(e.target.value)} />
+        <button className="btn primary" disabled={!name.trim() || add.isPending}>
+          Add
+        </button>
+      </form>
+      <ErrorNote error={add.error ?? remove.error} />
+      <ul className="category-list">
+        {categories.data?.map((c) => (
+          <li key={c.id}>
+            <span>{c.name}</span>
+            <button className="link-btn small danger" disabled={remove.isPending} onClick={() => confirm(`Remove "${c.name}"?`) && remove.mutate(c)}>
+              Remove
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Modal>
+  );
+}
