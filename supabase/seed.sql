@@ -38,17 +38,17 @@ insert into public.project_members (project_id, user_id) values
   ('10000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-0000000000c2'),
   ('10000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-0000000000c3');
 
-insert into public.events (id, title, notes, starts_at, ends_at, all_day, category, client_visible, created_by) values
+insert into public.events (id, title, notes, starts_at, ends_at, all_day, client_visible, created_by) values
   ('20000000-0000-0000-0000-000000000001', 'Framing inspection', 'County inspector on site.',
-     ((current_date + 2) + time '10:00') at time zone 'America/Los_Angeles', ((current_date + 2) + time '11:00') at time zone 'America/Los_Angeles', false, 'Inspection', true, '00000000-0000-0000-0000-00000000000b'),
+     ((current_date + 2) + time '10:00') at time zone 'America/Los_Angeles', ((current_date + 2) + time '11:00') at time zone 'America/Los_Angeles', false, true, '00000000-0000-0000-0000-00000000000b'),
   ('20000000-0000-0000-0000-000000000002', 'Kitchen demo', null,
-     (current_date + 1)::timestamp at time zone 'UTC', null, true, 'Demolition', true, '00000000-0000-0000-0000-00000000000b'),
+     (current_date + 1)::timestamp at time zone 'UTC', null, true, true, '00000000-0000-0000-0000-00000000000b'),
   ('20000000-0000-0000-0000-000000000003', 'Lumber delivery (shared truck)', 'One truck drops at both sites.',
-     ((current_date + 4) + time '08:00') at time zone 'America/Los_Angeles', ((current_date + 4) + time '12:00') at time zone 'America/Los_Angeles', false, 'Delivery', true, '00000000-0000-0000-0000-00000000000b'),
+     ((current_date + 4) + time '08:00') at time zone 'America/Los_Angeles', ((current_date + 4) + time '12:00') at time zone 'America/Los_Angeles', false, true, '00000000-0000-0000-0000-00000000000b'),
   ('20000000-0000-0000-0000-000000000004', 'Call plumber re: rough-in pricing', 'Internal — do not show client.',
-     ((current_date + 3) + time '09:00') at time zone 'America/Los_Angeles', null, false, 'Internal', false, '00000000-0000-0000-0000-00000000000b'),
+     ((current_date + 3) + time '09:00') at time zone 'America/Los_Angeles', null, false, false, '00000000-0000-0000-0000-00000000000b'),
   ('20000000-0000-0000-0000-000000000005', 'Office closed', null,
-     (current_date + 7)::timestamp at time zone 'UTC', null, true, 'Office', true, '00000000-0000-0000-0000-00000000000b');
+     (current_date + 7)::timestamp at time zone 'UTC', null, true, true, '00000000-0000-0000-0000-00000000000b');
 
 insert into public.event_projects (event_id, project_id) values
   ('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001'),

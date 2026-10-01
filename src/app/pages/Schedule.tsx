@@ -33,7 +33,6 @@ export function Schedule() {
           <p>
             <strong>{fmtEventWhen(open)}</strong>
           </p>
-          {open.category && <p className="muted">{open.category}</p>}
           {open.notes && <p className="pre">{open.notes}</p>}
         </Modal>
       )}

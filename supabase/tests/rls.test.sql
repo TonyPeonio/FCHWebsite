@@ -49,8 +49,6 @@ select is((select count(*) from profiles), 1::bigint, 'Clients see only their ow
 select results_eq($$ select file_name from documents $$, $$ values ('visible.pdf') $$, 'Smith sees only client-visible docs in P1');
 select results_eq($$ select name from calendar_projects() $$, $$ values ('Smith Residence') $$,
   'Clients get only their own projects for the calendar');
-select throws_ok($$ insert into event_categories (name) values ('Client category') $$, '42501', null,
-  'Clients cannot add calendar categories');
 select results_eq(
   $$ select name from storage.objects where bucket_id = 'project-files' order by name $$,
   $$ values ('10000000-0000-0000-0000-000000000001/docs/thumbs/visible.jpg'), ('10000000-0000-0000-0000-000000000001/docs/visible.pdf') $$,
@@ -109,10 +107,6 @@ select is((select count(*) from selections), 0::bigint, 'Lee has no selections')
 select pg_temp.login('00000000-0000-0000-0000-00000000000b');
 select is(is_staff(), true, 'Staff accounts are staff');
 select is((select count(*) from events), 5::bigint, 'Staff see all events, including staff-only');
-select is((select count(*) from event_categories), 16::bigint, 'Staff see the calendar categories');
-select throws_ok($$ insert into event_categories (name) values ('Staff category') $$, '42501', null,
-  'Staff cannot add calendar categories');
-delete from event_categories;
 select is((select count(*) from calendar_projects()), 3::bigint, 'Staff get every project name and color for the calendar');
 select is((select count(*) from projects), 0::bigint, 'Staff cannot open projects');
 select is((select count(*) from selections), 0::bigint, 'Staff cannot see selections');
@@ -156,13 +150,6 @@ select is((select count(*) from projects), 3::bigint, 'Staff could not delete pr
 select is((select count(*) from quote_requests where status = 'declined'), 0::bigint, 'Staff could not change inquiry status');
 select is((select count(*) from documents where not client_visible), 1::bigint, 'Staff could not change file visibility');
 select is((select count(*) from documents where show_on_website), 0::bigint, 'Staff could not put photos on the website');
-select is((select count(*) from event_categories), 16::bigint, 'Staff could not remove calendar categories');
-select lives_ok($$ insert into event_categories (name) values ('Landscaping') $$, 'Owner can add a calendar category');
-select throws_ok($$ insert into event_categories (name) values ('  landscaping ') $$, '23505', null,
-  'Calendar categories must be unique, ignoring capitals and spaces');
-select throws_ok($$ insert into event_categories (name) values ('   ') $$, '23514', null, 'Calendar categories cannot be blank');
-select lives_ok($$ delete from event_categories where name = 'Landscaping' $$, 'Owner can remove a calendar category');
-select is((select count(*) from event_categories), 16::bigint, 'Category removed');
 select lives_ok($$ insert into events (title, starts_at) values ('Owner event', now()) $$, 'Owner can add calendar events');
 select lives_ok($$ update events set title = 'Framing inspection (moved)' where id = '20000000-0000-0000-0000-000000000001' $$, 'Owner can edit events');
 select is((select title from events where id = '20000000-0000-0000-0000-000000000001'), 'Framing inspection (moved)', 'Owner edit saved');
@@ -187,7 +174,6 @@ set local role anon;
 select set_config('request.jwt.claims', '{"role":"anon"}', true);
 select is((select count(*) from projects), 0::bigint, 'Anonymous users see nothing');
 select is((select count(*) from events), 0::bigint, 'Anonymous users see no events');
-select is((select count(*) from event_categories), 0::bigint, 'Anonymous users see no calendar categories');
 select throws_ok($$ select * from calendar_projects() $$, '42501', null, 'Anonymous users cannot list projects');
 select is((select count(*) from documents), 0::bigint, 'Anonymous users see no photos, even ones on the website');
 select throws_ok($$ insert into quote_requests (email) values ('x@y.z') $$, '42501', null,

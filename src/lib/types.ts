@@ -38,7 +38,6 @@ export interface CalEvent {
   starts_at: string;
   ends_at: string | null;
   all_day: boolean;
-  category: string | null;
   client_visible: boolean;
   event_projects: { project_id: string }[];
 }
@@ -106,11 +105,6 @@ export interface PersonRow extends Profile {
   project_members: { project_id: string }[];
 }
 
-/** A calendar event category; the owner manages the list (events store the name). */
-export interface EventCategory {
-  id: number;
-  name: string;
-}
 
 export const SELECTION_STATUS_LABEL: Record<SelectionStatus, string> = {
   requested: "Waiting on client",

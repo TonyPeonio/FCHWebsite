@@ -43,9 +43,6 @@ one or more projects. A client sees an event only if it's tagged to one of their
 both clients, and neither can tell the other project exists. Untick "Visible to clients" for
 internal items like sub scheduling or pricing calls.
 
-Owners manage the event categories (Master Calendar → Categories, or "+ New category…" while
-editing an event); removing one doesn't change events that already use it.
-
 Anyone can subscribe to their calendar in Google, Apple, or Outlook from the portal's Account
 page (read-only, auto-updating).
 

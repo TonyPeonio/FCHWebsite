@@ -36,7 +36,7 @@ serve(async (req) => {
 
   let query = db
     .from("events")
-    .select("id, title, notes, starts_at, ends_at, all_day, category, client_visible, updated_at, event_projects(project_id, projects(name))")
+    .select("id, title, notes, starts_at, ends_at, all_day, client_visible, updated_at, event_projects(project_id, projects(name))")
     .gte("starts_at", from)
     .lte("starts_at", to)
     .order("starts_at");
@@ -68,7 +68,7 @@ serve(async (req) => {
     if (!isStaff && visibleTags.length === 0) continue;
 
     const projectNames = visibleTags.map((t) => t.projects?.name).filter(Boolean);
-    const summary = isStaff && projectNames.length ? `[${projectNames.join(", ")}] ${ev.title}` : ev.title;
+    const summary = isStaff && projectNames.length ? `${ev.title} – ${projectNames.join(" + ")}` : ev.title;
 
     lines.push("BEGIN:VEVENT", `UID:${ev.id}@firstchoicehomesllc.org`, `DTSTAMP:${utcStamp(ev.updated_at)}`);
     if (ev.all_day) {
@@ -81,7 +81,6 @@ serve(async (req) => {
     }
     lines.push(`SUMMARY:${escapeText(summary)}`);
     if (ev.notes) lines.push(`DESCRIPTION:${escapeText(ev.notes)}`);
-    if (ev.category) lines.push(`CATEGORIES:${escapeText(ev.category)}`);
     lines.push("END:VEVENT");
   }
   lines.push("END:VCALENDAR");

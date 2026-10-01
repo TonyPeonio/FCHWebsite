@@ -3,7 +3,6 @@ import * as api from "../lib/api";
 import type { CalEvent, CalendarProject } from "../lib/types";
 
 export const useProjects = () => useQuery({ queryKey: ["projects"], queryFn: api.fetchProjects });
-export const useEventCategories = () => useQuery({ queryKey: ["event-categories"], queryFn: api.fetchEventCategories });
 export const useCalendarProjects = () => useQuery({ queryKey: ["projects", "calendar"], queryFn: api.fetchCalendarProjects });
 export const useEvents = () => useQuery({ queryKey: ["events"], queryFn: api.fetchEvents });
 export const useSelections = (projectId?: string) =>

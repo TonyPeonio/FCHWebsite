@@ -214,9 +214,3 @@ legend { font-size: .88rem; color: var(--ink); padding: 0 4px; }
 .dump-bar select { flex: 1 1 180px; width: auto; }
 .dump-bar .notice { flex-basis: 100%; margin: 0; }
 .notice ul { margin: 6px 0 0; padding-left: 18px; }
-
-/* Calendar categories */
-.inline-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: -4px 0 12px; }
-.inline-add input { flex: 1 1 180px; width: auto; }
-.category-list { list-style: none; padding: 0; margin: 0; max-height: 50vh; overflow-y: auto; }
-.category-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--line); }

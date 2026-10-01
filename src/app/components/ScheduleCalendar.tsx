@@ -11,7 +11,7 @@ interface Props {
   events: CalEvent[];
   projects: Record<string, CalendarProject>;
   editable?: boolean;
-  /** Prefix titles with project names (staff view). */
+  /** Follow titles with project names (owner and staff view). */
   showProjectNames?: boolean;
   onEventClick?: (ev: CalEvent) => void;
   onDateClick?: (date: string, allDay: boolean) => void;
@@ -28,7 +28,7 @@ export function ScheduleCalendar({ events, projects, editable, showProjectNames,
     const names = ev.event_projects.map((t) => projects[t.project_id]?.name).filter(Boolean);
     return {
       id: ev.id,
-      title: showProjectNames && names.length ? `${names.join(" + ")}: ${ev.title}` : ev.title,
+      title: showProjectNames && names.length ? `${ev.title} – ${names.join(" + ")}` : ev.title,
       start: ev.all_day ? allDayDate(ev.starts_at) : ev.starts_at,
       end: ev.ends_at ? (ev.all_day ? allDayDate(ev.ends_at) : ev.ends_at) : undefined,
       allDay: ev.all_day,
