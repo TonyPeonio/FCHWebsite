@@ -4,7 +4,8 @@
 //   npx supabase secrets set COPY_TOKEN=<random>
 //   curl -X POST <SUPABASE_URL>/functions/v1/copy-files-to-r2 -H "x-copy-token: <random>"   (repeat until remaining is 0)
 //   npx supabase secrets unset COPY_TOKEN
-// Copies up to BATCH files per call, skipping ones already in R2 at the same size. Deletes nothing.
+// Copies up to BATCH files per call, skipping ones already in R2 at the same size. With ?cleanup=1 it
+// instead deletes Supabase copies already in R2 at the same size (up to 100 per call), and nothing else.
 import { adminClient, HttpError, json, serve } from "../_shared/util.ts";
 import { type Area, put, sizeOf } from "../_shared/r2.ts";
 
@@ -30,12 +31,23 @@ serve(async (req) => {
     }
   };
 
-  let copied = 0, skipped = 0, remaining = 0;
+  // ?cleanup=1: delete the Supabase copies of files confirmed in R2 at the same size.
+  const cleanup = new URL(req.url).searchParams.get("cleanup") === "1";
+  let copied = 0, skipped = 0, remaining = 0, deleted = 0;
   const failed: string[] = [];
   for (const area of ["project-files", "quote-uploads"] as const) {
     for (const item of await listAll(area)) {
       if (item.size !== null && (await sizeOf(area, item.path)) === item.size) {
-        skipped++;
+        if (cleanup && deleted < 100) {
+          const { error } = await db.storage.from(area).remove([item.path]);
+          if (error) failed.push(`${area}/${item.path}: ${error.message}`);
+          else deleted++;
+        } else if (cleanup) remaining++;
+        else skipped++;
+        continue;
+      }
+      if (cleanup) {
+        failed.push(`${area}/${item.path}: not in R2 yet, kept`);
         continue;
       }
       if (copied + failed.length >= BATCH) {
@@ -52,5 +64,5 @@ serve(async (req) => {
       }
     }
   }
-  return json({ copied, skipped, remaining, failed });
+  return json({ copied, skipped, deleted, remaining, failed });
 });
