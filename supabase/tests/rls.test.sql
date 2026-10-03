@@ -90,6 +90,10 @@ select throws_ok($$ select submit_selection('30000000-0000-0000-0000-00000000000
   'Cannot resubmit once submitted');
 select throws_ok($$ select decide_selection('30000000-0000-0000-0000-000000000001', true) $$, '42501', null,
   'Clients cannot approve selections');
+select throws_ok($$ insert into project_statuses (name, stage) values ('Mine', 'planning') $$, '42501', null,
+  'Clients cannot add project statuses');
+select throws_ok($$ select space_used() $$, '42501', null, 'Clients cannot see space used');
+select is((select count(*) from usage_limits), 0::bigint, 'Clients cannot read usage limits');
 
 ---------------------------------------------------------------------------- Jones & Lee
 select pg_temp.login('00000000-0000-0000-0000-0000000000c2');
@@ -143,6 +147,9 @@ select throws_ok($$ select set_user_role('00000000-0000-0000-0000-0000000000c1',
   'Only the owner can change roles');
 select throws_ok($$ update profiles set role = 'owner' where id = auth.uid() $$, '42501', null,
   'Staff cannot promote themselves');
+select throws_ok($$ insert into project_statuses (name, stage) values ('Mine', 'planning') $$, '42501', null,
+  'Staff cannot add project statuses');
+select throws_ok($$ select space_used() $$, '42501', null, 'Staff cannot see space used');
 
 ---------------------------------------------------------------------------- Owner
 select pg_temp.login('00000000-0000-0000-0000-00000000000a');
@@ -167,6 +174,28 @@ select throws_ok(
   '23514', null, 'A photo''s file path must match its project');
 select lives_ok($$ select set_user_role('00000000-0000-0000-0000-0000000000c3', 'staff') $$, 'Owner can change roles');
 select throws_ok($$ select set_user_role(auth.uid(), 'client') $$, 'P0001', null, 'Owner cannot demote themselves');
+
+-- Custom project statuses
+select lives_ok($$ insert into project_statuses (name, stage) values ('Estimate pending', 'planning') $$, 'Owner can add a project status');
+select throws_ok($$ insert into project_statuses (name, stage) values (' estimate PENDING ', 'active') $$, '23505', null,
+  'Status names are unique ignoring case and spaces');
+update projects set custom_status_id = (select id from project_statuses where name = 'Estimate pending'), status = 'active'
+  where id = '10000000-0000-0000-0000-000000000001';
+select is((select status::text from projects where id = '10000000-0000-0000-0000-000000000001'), 'planning',
+  'A custom status sets the project''s stage');
+update projects set status = 'complete' where id = '10000000-0000-0000-0000-000000000001';
+select is((select custom_status_id from projects where id = '10000000-0000-0000-0000-000000000001'), null::bigint,
+  'Changing just the stage drops the custom status');
+update projects set custom_status_id = (select id from project_statuses where name = 'Estimate pending')
+  where id = '10000000-0000-0000-0000-000000000001';
+delete from project_statuses where name = 'Estimate pending';
+select is((select custom_status_id from projects where id = '10000000-0000-0000-0000-000000000001'), null::bigint,
+  'Removing a status clears it from projects');
+
+-- Space used
+select ok((select (space_used()->>'database_bytes')::bigint > 0), 'Owner can see space used');
+select lives_ok($$ update usage_limits set storage_limit_mb = 102400 $$, 'Owner can change usage limits');
+select is((select storage_limit_mb from usage_limits), 102400, 'Usage limit saved');
 
 ---------------------------------------------------------------------------- Anonymous
 reset role;

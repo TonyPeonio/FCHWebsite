@@ -26,6 +26,25 @@ export interface Project {
   city: string | null;
   /** Set by "Mark completed"; with the city, labels the project on the public website. */
   completed_on: string | null;
+  /** An owner-added status (e.g. "Estimate pending"); `status` is then that status's stage. */
+  custom_status_id: number | null;
+}
+
+/** A status the owner added, filed under one of the built-in stages. */
+export interface CustomStatus {
+  id: number;
+  name: string;
+  stage: ProjectStatus;
+}
+
+export interface SpaceUsed {
+  database_bytes: number;
+  buckets: { bucket_id: string; files: number; bytes: number }[];
+}
+
+export interface UsageLimits {
+  database_limit_mb: number;
+  storage_limit_mb: number;
 }
 
 /** What the calendar needs to label events; staff get only this about projects. */
@@ -120,6 +139,19 @@ export const SELECTION_STATUS_LABEL_CLIENT: Record<SelectionStatus, string> = {
   approved: "Approved",
   revision_requested: "Changes requested",
 };
+
+/** The built-in project stages, in order. */
+export const PROJECT_STAGE_LABEL: Record<ProjectStatus, string> = {
+  planning: "Planning",
+  active: "Under construction",
+  on_hold: "On hold",
+  complete: "Complete",
+};
+
+/** A project's custom status if it has one, otherwise its stage. */
+export function projectStatusLabel(p: Pick<Project, "status" | "custom_status_id">, statuses: CustomStatus[] | undefined) {
+  return statuses?.find((s) => s.id === p.custom_status_id)?.name ?? PROJECT_STAGE_LABEL[p.status];
+}
 
 export const CATEGORY_LABEL: Record<ProjectCategory, string> = {
   new_construction: "New construction homes",

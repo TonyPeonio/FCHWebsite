@@ -1,7 +1,20 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth";
+import { projectStatusLabel } from "../../../lib/types";
+import { SpaceUsed } from "../../components/SpaceUsed";
 import { Empty, ProjectDot, StatusBadge } from "../../components/ui";
-import { byId, fmtDate, fmtEventWhen, projectColor, upcoming, useEvents, useProjects, useQuotes, useSelections } from "../../hooks";
+import {
+  byId,
+  fmtDate,
+  fmtEventWhen,
+  projectColor,
+  upcoming,
+  useCustomStatuses,
+  useEvents,
+  useProjects,
+  useQuotes,
+  useSelections,
+} from "../../hooks";
 
 export function AdminHome() {
   const { profile } = useAuth();
@@ -9,11 +22,13 @@ export function AdminHome() {
   const projects = useProjects();
   const quotes = useQuotes();
   const selections = useSelections();
+  const statuses = useCustomStatuses();
   const projectMap = byId(projects.data);
 
   const newQuotes = (quotes.data ?? []).filter((q) => q.status === "new");
   const toReview = (selections.data ?? []).filter((s) => s.status === "submitted");
   const waiting = (selections.data ?? []).filter((s) => s.status === "requested" || s.status === "revision_requested");
+  const planning = (projects.data ?? []).filter((p) => p.status === "planning");
   const overdue = waiting.filter((s) => s.due_date && s.due_date < new Date().toLocaleDateString("en-CA"));
 
   return (
@@ -30,8 +45,11 @@ export function AdminHome() {
         <div className="stat">
           <strong>{waiting.length}</strong> waiting on clients{overdue.length > 0 && <em> · {overdue.length} overdue</em>}
         </div>
-        <Link to="/admin/projects" className="stat">
-          <strong>{(projects.data ?? []).filter((p) => p.status === "active").length}</strong> active projects
+        <Link to="/admin/projects?stage=planning" className="stat">
+          <strong>{planning.length}</strong> in planning
+        </Link>
+        <Link to="/admin/projects?stage=active" className="stat">
+          <strong>{(projects.data ?? []).filter((p) => p.status === "active").length}</strong> under construction
         </Link>
       </div>
 
@@ -79,6 +97,29 @@ export function AdminHome() {
             <Empty>All caught up.</Empty>
           )}
         </section>
+
+        <section className="card">
+          <div className="card-head">
+            <h2>In planning</h2>
+            <Link to="/admin/projects?stage=planning">Projects →</Link>
+          </div>
+          {planning.length ? (
+            <ul className="rows">
+              {planning.map((p) => (
+                <li key={p.id}>
+                  <span>
+                    <ProjectDot color={p.color} /> <Link to={`/admin/projects/${p.id}`}>{p.name}</Link>
+                  </span>
+                  <span className="badge">{projectStatusLabel(p, statuses.data)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <Empty>No projects in planning.</Empty>
+          )}
+        </section>
+
+        <SpaceUsed />
       </div>
     </div>
   );

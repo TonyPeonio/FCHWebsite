@@ -1,13 +1,14 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth";
-import { byId, fmtDate, fmtEventWhen, upcoming, useDocuments, useEvents, useProjects, useSelections } from "../hooks";
+import { projectStatusLabel } from "../../lib/types";
+import { byId, fmtDate, fmtEventWhen, upcoming, useCustomStatuses, useDocuments, useEvents, useProjects, useSelections } from "../hooks";
 import { DocList, Empty, ProjectDot, StatusBadge } from "../components/ui";
 
-const STATUS_LABEL = { planning: "Planning", active: "Under construction", on_hold: "On hold", complete: "Complete" };
 
 export function Dashboard() {
   const { profile } = useAuth();
   const projects = useProjects();
+  const statuses = useCustomStatuses();
   const events = useEvents();
   const selections = useSelections();
   const docs = useDocuments();
@@ -35,7 +36,7 @@ export function Dashboard() {
             <h2>{p.name}</h2>
             {p.address && <p className="muted">{p.address}</p>}
             <p>
-              <strong>{STATUS_LABEL[p.status]}</strong>
+              <strong>{projectStatusLabel(p, statuses.data)}</strong>
               {p.target_completion && <> · Target completion {fmtDate(p.target_completion)}</>}
             </p>
           </div>

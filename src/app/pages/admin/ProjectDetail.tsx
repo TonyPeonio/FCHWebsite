@@ -2,18 +2,19 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as api from "../../../lib/api";
-import { CATEGORY_LABEL, DOC_KIND_LABEL, type Doc, type DocumentKind, type Project } from "../../../lib/types";
+import { CATEGORY_LABEL, DOC_KIND_LABEL, projectStatusLabel, type Doc, type DocumentKind, type Project } from "../../../lib/types";
 import { DocList, Empty, ErrorNote, FilePicker, Modal, ProjectDot, StatusBadge, TypeToConfirm, UploadFailures } from "../../components/ui";
 import { useAuth } from "../../auth";
-import { byId, fmtDate, fmtEventWhen, upcoming, useDocuments, useEvents, usePeople, useProjects, useSelections } from "../../hooks";
+import { byId, fmtDate, fmtEventWhen, upcoming, useCustomStatuses, useDocuments, useEvents, usePeople, useProjects, useSelections } from "../../hooks";
 import { draftFrom, EventEditor } from "./MasterCalendar";
-import { ProjectForm, STATUS_OPTIONS } from "./Projects";
+import { ProjectForm } from "./Projects";
 
 type Tab = "overview" | "selections" | "files" | "clients";
 
 export function ProjectDetail() {
   const { id = "" } = useParams();
   const projects = useProjects();
+  const statuses = useCustomStatuses();
   const project = byId(projects.data)[id];
   const [tab, setTab] = useState<Tab>("overview");
   const [editing, setEditing] = useState<false | "edit" | "complete">(false);
@@ -67,7 +68,7 @@ export function ProjectDetail() {
       <p className="muted">
         {project.category && <>{CATEGORY_LABEL[project.category]} · </>}
         {project.address && <>{project.address} · </>}
-        {STATUS_OPTIONS.find((s) => s.value === project.status)?.label}
+        {projectStatusLabel(project, statuses.data)}
         {project.status === "complete"
           ? project.completed_on && <> {fmtDate(project.completed_on)}</>
           : project.target_completion && <> · Target {fmtDate(project.target_completion)}</>}

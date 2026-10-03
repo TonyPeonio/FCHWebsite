@@ -214,3 +214,21 @@ legend { font-size: .88rem; color: var(--ink); padding: 0 4px; }
 .dump-bar select { flex: 1 1 180px; width: auto; }
 .dump-bar .notice { flex-basis: 100%; margin: 0; }
 .notice ul { margin: 6px 0 0; padding-left: 18px; }
+
+/* Project statuses */
+.inline-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: -4px 0 12px; }
+.inline-add input { flex: 1 1 180px; width: auto; }
+.inline-add select { width: auto; margin: 0; }
+.status-list, .status-list ul { list-style: none; padding: 0; margin: 0; }
+.status-list { max-height: 50vh; overflow-y: auto; }
+.status-list > li { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.status-list ul li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 4px 0 4px 14px; }
+
+/* Space used */
+.meter { margin-bottom: 14px; }
+.meter-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+.meter-bar { height: 10px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.meter-bar span { display: block; height: 100%; border-radius: 99px; min-width: 2px; }
+.meter-ok { background: var(--ok); }
+.meter-warn { background: #d4a017; }
+.meter-error { background: var(--error); }

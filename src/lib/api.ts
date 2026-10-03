@@ -4,13 +4,17 @@ import { supabase } from "./supabase";
 import type {
   CalendarProject,
   CalEvent,
+  CustomStatus,
   Doc,
   DocumentKind,
   PersonRow,
   Project,
   Quote,
   QuoteStatus,
+  ProjectStatus,
   Selection,
+  SpaceUsed,
+  UsageLimits,
 } from "./types";
 
 /** Unwraps a Supabase result: throws on error, otherwise returns non-null data. */
@@ -48,6 +52,34 @@ export async function saveProject(project: Partial<Project>): Promise<Project> {
     ? supabase.from("projects").update(fields).eq("id", id).select().single()
     : supabase.from("projects").insert(fields).select().single();
   return check(await query);
+}
+
+// ---------------------------------------------------------------- project statuses
+export async function fetchCustomStatuses(): Promise<CustomStatus[]> {
+  return check(await supabase.from("project_statuses").select("id, name, stage").order("id"));
+}
+
+export async function addCustomStatus(name: string, stage: ProjectStatus): Promise<CustomStatus> {
+  const { data, error } = await supabase.from("project_statuses").insert({ name: name.trim(), stage }).select("id, name, stage").single();
+  if (error?.code === "23505") throw new Error(`There's already a status called "${name.trim()}".`);
+  return check({ data, error });
+}
+
+export async function deleteCustomStatus(id: number) {
+  check(await supabase.from("project_statuses").delete().eq("id", id));
+}
+
+// ---------------------------------------------------------------- space used
+export async function fetchSpaceUsed(): Promise<SpaceUsed> {
+  return check(await supabase.rpc("space_used"));
+}
+
+export async function fetchUsageLimits(): Promise<UsageLimits> {
+  return check(await supabase.from("usage_limits").select("database_limit_mb, storage_limit_mb").single());
+}
+
+export async function saveUsageLimits(limits: UsageLimits) {
+  check(await supabase.from("usage_limits").update(limits).eq("id", true));
 }
 
 // ---------------------------------------------------------------- events
