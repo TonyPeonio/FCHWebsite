@@ -5,7 +5,7 @@ import type { UsageLimits } from "../../lib/types";
 import { ErrorNote } from "./ui";
 
 const MB = 1024 * 1024;
-const BUCKET_LABEL: Record<string, string> = { "project-files": "Project photos & files", "quote-uploads": "Inquiry uploads" };
+const AREA_LABEL = { "project-files": "Project photos & files", "quote-uploads": "Inquiry uploads" };
 
 function fmtSize(bytes: number) {
   return bytes >= 1024 * MB ? `${(bytes / 1024 / MB).toFixed(2)} GB` : `${(bytes / MB).toFixed(1)} MB`;
@@ -30,11 +30,12 @@ function Meter({ label, used, limitMb, detail }: { label: string; used: number; 
   );
 }
 
-/** Owner-only: database and file storage in use against the Supabase plan's limits. */
+/** Owner-only: files (in Cloudflare R2) and database (Supabase) in use against the plans' limits. */
 export function SpaceUsed() {
   const qc = useQueryClient();
   // Refreshed every 10 minutes while the page is open; the numbers move slowly.
   const used = useQuery({ queryKey: ["space-used"], queryFn: api.fetchSpaceUsed, refetchInterval: 10 * 60 * 1000 });
+  const fileUsage = useQuery({ queryKey: ["file-usage"], queryFn: api.fetchFileUsage, refetchInterval: 10 * 60 * 1000 });
   const limits = useQuery({ queryKey: ["usage-limits"], queryFn: api.fetchUsageLimits });
   const [editing, setEditing] = useState<UsageLimits | null>(null);
   const save = useMutation({
@@ -45,8 +46,9 @@ export function SpaceUsed() {
     },
   });
 
-  const storageBytes = (used.data?.buckets ?? []).reduce((sum, b) => sum + Number(b.bytes), 0);
-  const files = (used.data?.buckets ?? []).reduce((sum, b) => sum + Number(b.files), 0);
+  const areas = fileUsage.data?.areas ?? [];
+  const storageBytes = areas.reduce((sum, a) => sum + a.bytes, 0);
+  const files = areas.reduce((sum, a) => sum + a.files, 0);
 
   return (
     <section className="card">
@@ -58,21 +60,21 @@ export function SpaceUsed() {
           </button>
         )}
       </div>
-      {used.data && limits.data ? (
+      {used.data && fileUsage.data && limits.data ? (
         <>
           <Meter
-            label="File storage"
+            label="Files (Cloudflare R2)"
             used={storageBytes}
             limitMb={limits.data.storage_limit_mb}
             detail={[
               `${files} file${files === 1 ? "" : "s"}`,
-              ...used.data.buckets.map((b) => `${BUCKET_LABEL[b.bucket_id] ?? b.bucket_id} ${fmtSize(Number(b.bytes))}`),
+              ...areas.filter((a) => a.files > 0).map((a) => `${AREA_LABEL[a.area]} ${fmtSize(a.bytes)}`),
             ].join(" · ")}
           />
           <Meter label="Database" used={Number(used.data.database_bytes)} limitMb={limits.data.database_limit_mb} />
         </>
       ) : (
-        <p className="muted">{used.isLoading || limits.isLoading ? "Loading…" : null}</p>
+        <p className="muted">{used.isLoading || fileUsage.isLoading || limits.isLoading ? "Loading…" : null}</p>
       )}
       {editing && (
         <form
@@ -81,10 +83,13 @@ export function SpaceUsed() {
             save.mutate();
           }}
         >
-          <p className="muted small">Match these to your Supabase plan. Free: 1024 MB files, 500 MB database. Pro: 102400 MB files, 8192 MB database.</p>
+          <p className="muted small">
+            Files: Cloudflare R2 includes 10240 MB free, then about $0.015 per GB each month, so set this to what you're
+            happy to pay for (e.g. 30720 MB ≈ $0.30/month). Database: Supabase Free is 500 MB, Pro is 8192 MB.
+          </p>
           <div className="grid-2 tight">
             <label>
-              File storage limit (MB)
+              Files limit (MB)
               <input type="number" min={1} required value={editing.storage_limit_mb} onChange={(e) => setEditing({ ...editing, storage_limit_mb: Number(e.target.value) })} />
             </label>
             <label>
@@ -102,7 +107,7 @@ export function SpaceUsed() {
           </div>
         </form>
       )}
-      <ErrorNote error={used.error ?? limits.error ?? save.error} />
+      <ErrorNote error={used.error ?? fileUsage.error ?? limits.error ?? save.error} />
     </section>
   );
 }

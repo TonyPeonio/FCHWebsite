@@ -1,5 +1,4 @@
 import "./styles.css";
-import { createClient } from "@supabase/supabase-js";
 
 // Footer year
 document.getElementById("year").textContent = new Date().getFullYear();
@@ -158,7 +157,6 @@ const openLightbox = (function lightbox() {
     });
     return;
   }
-  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false } });
   let files = [];
   let turnstileToken = "";
   let widgetId = null;
@@ -221,8 +219,8 @@ const openLightbox = (function lightbox() {
       });
       for (const [i, up] of uploads.entries()) {
         status.textContent = `Uploading ${i + 1} of ${uploads.length}…`;
-        const { error } = await supabase.storage.from("quote-uploads").uploadToSignedUrl(up.path, up.token, files[i]);
-        if (error) throw new Error(`Couldn't upload ${files[i].name}`);
+        const res = await fetch(up.url, { method: "PUT", body: files[i] }).catch(() => null);
+        if (!res?.ok) throw new Error(`Couldn't upload ${files[i].name}`);
       }
       await call("quote-finalize", { quoteId });
       form.reset();

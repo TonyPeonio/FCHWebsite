@@ -3,7 +3,8 @@
 // often the client's surname.
 //   GET                  -> build types, each with its projects ({ id, label, cover })
 //   GET ?project=<uuid>  -> that project's website photos ({ thumb, full, caption })
-import { adminClient, corsHeaders, HttpError, publicUrl, serve } from "../_shared/util.ts";
+import { adminClient, corsHeaders, HttpError, serve } from "../_shared/util.ts";
+import { presign } from "../_shared/r2.ts";
 
 const CATEGORY_LABEL: Record<string, string> = {
   new_construction: "New construction homes",
@@ -76,10 +77,7 @@ serve(async (req) => {
 
   const sign = async (paths: string[]) => {
     const unique = [...new Set(paths)];
-    if (!unique.length) return {} as Record<string, string>;
-    const { data, error } = await db.storage.from("project-files").createSignedUrls(unique, URL_TTL_SECONDS);
-    if (error) throw error;
-    return Object.fromEntries(data.filter((d) => d.signedUrl && d.path).map((d) => [d.path!, publicUrl(d.signedUrl)]));
+    return Object.fromEntries(await Promise.all(unique.map(async (p) => [p, await presign("project-files", p, "GET", URL_TTL_SECONDS)])));
   };
 
   if (projectParam) {

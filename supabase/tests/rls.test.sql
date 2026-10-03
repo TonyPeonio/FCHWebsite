@@ -95,6 +95,24 @@ select throws_ok($$ insert into project_statuses (name, stage) values ('Mine', '
 select throws_ok($$ select space_used() $$, '42501', null, 'Clients cannot see space used');
 select is((select count(*) from usage_limits), 0::bigint, 'Clients cannot read usage limits');
 
+-- File permissions for R2 (the files function asks these)
+select results_eq(
+  $$ select readable_files('project-files', array[
+       '10000000-0000-0000-0000-000000000001/docs/visible.pdf', '10000000-0000-0000-0000-000000000001/docs/hidden.pdf', '10000000-0000-0000-0000-000000000001/docs/thumbs/visible.jpg',
+       '10000000-0000-0000-0000-000000000001/options/tile.jpg', '10000000-0000-0000-0000-000000000002/docs/jones.pdf', '10000000-0000-0000-0000-000000000002/options/x.jpg', 'library/dump.jpg']) $$,
+  $$ values ('10000000-0000-0000-0000-000000000001/docs/visible.pdf'), ('10000000-0000-0000-0000-000000000001/docs/thumbs/visible.jpg'), ('10000000-0000-0000-0000-000000000001/options/tile.jpg') $$,
+  'Files: Smith can download only client-visible files, their thumbnails, and option images in his project');
+select is((select count(*) from readable_files('quote-uploads', array['abc/1-plan.pdf'])), 0::bigint,
+  'Files: clients cannot download inquiry uploads');
+select results_eq(
+  $$ select uploadable_files(array['10000000-0000-0000-0000-000000000001/uploads/a.jpg', '10000000-0000-0000-0000-000000000001/docs/a.jpg', '10000000-0000-0000-0000-000000000002/uploads/a.jpg', 'library/a.jpg', '10000000-0000-0000-0000-000000000001/uploads']) $$,
+  $$ values ('10000000-0000-0000-0000-000000000001/uploads/a.jpg') $$,
+  'Files: Smith can upload only to his project''s uploads folder');
+select results_eq(
+  $$ select deletable_files(array['10000000-0000-0000-0000-000000000001/uploads/orphan.jpg', '10000000-0000-0000-0000-000000000001/docs/visible.pdf', '10000000-0000-0000-0000-000000000002/uploads/orphan.jpg']) $$,
+  $$ values ('10000000-0000-0000-0000-000000000001/uploads/orphan.jpg') $$,
+  'Files: Smith can delete only unclaimed files in his project''s uploads folder');
+
 ---------------------------------------------------------------------------- Jones & Lee
 select pg_temp.login('00000000-0000-0000-0000-0000000000c2');
 select results_eq(
@@ -150,6 +168,11 @@ select throws_ok($$ update profiles set role = 'owner' where id = auth.uid() $$,
 select throws_ok($$ insert into project_statuses (name, stage) values ('Mine', 'planning') $$, '42501', null,
   'Staff cannot add project statuses');
 select throws_ok($$ select space_used() $$, '42501', null, 'Staff cannot see space used');
+select is((select count(*) from readable_files('project-files', array['10000000-0000-0000-0000-000000000001/docs/visible.pdf', 'library/dump.jpg'])), 0::bigint,
+  'Files: staff cannot download project files');
+select is((select count(*) from uploadable_files(array['10000000-0000-0000-0000-000000000001/docs/a.jpg', '10000000-0000-0000-0000-000000000001/uploads/a.jpg'])), 0::bigint,
+  'Files: staff cannot upload');
+select is((select count(*) from deletable_files(array['10000000-0000-0000-0000-000000000001/docs/visible.pdf'])), 0::bigint, 'Files: staff cannot delete');
 
 ---------------------------------------------------------------------------- Owner
 select pg_temp.login('00000000-0000-0000-0000-00000000000a');
@@ -196,6 +219,15 @@ select is((select custom_status_id from projects where id = '10000000-0000-0000-
 select ok((select (space_used()->>'database_bytes')::bigint > 0), 'Owner can see space used');
 select lives_ok($$ update usage_limits set storage_limit_mb = 102400 $$, 'Owner can change usage limits');
 select is((select storage_limit_mb from usage_limits), 102400, 'Usage limit saved');
+
+-- File permissions for R2
+select is((select count(*) from readable_files('project-files', array['10000000-0000-0000-0000-000000000001/docs/hidden.pdf', 'library/x.jpg', '10000000-0000-0000-0000-000000000002/options/x.jpg'])), 3::bigint,
+  'Files: the owner can download any project file');
+select is((select count(*) from readable_files('quote-uploads', array['abc/1-plan.pdf'])), 1::bigint,
+  'Files: the owner can download inquiry uploads');
+select is((select count(*) from uploadable_files(array['10000000-0000-0000-0000-000000000001/docs/a.jpg', 'library/a.jpg'])), 2::bigint, 'Files: the owner can upload anywhere');
+select is((select count(*) from deletable_files(array['10000000-0000-0000-0000-000000000001/docs/visible.pdf'])), 1::bigint, 'Files: the owner can delete files');
+select is((select count(*) from readable_files('other', array['10000000-0000-0000-0000-000000000001/docs/visible.pdf'])), 0::bigint, 'Files: unknown areas are refused');
 
 ---------------------------------------------------------------------------- Anonymous
 reset role;

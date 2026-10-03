@@ -6,7 +6,8 @@
   projects, selections, website inquiries, and invitations.
 
 Hosted free on GitHub Pages. The backend is [Supabase](https://supabase.com) (database, logins,
-file storage, server functions). Email goes through [Resend](https://resend.com).
+server functions); files (photos, plans, inquiry uploads) are stored in
+[Cloudflare R2](https://developers.cloudflare.com/r2/). Email goes through [Resend](https://resend.com).
 
 ## How it fits together
 
@@ -16,10 +17,12 @@ Browser ──> GitHub Pages (static files built by Vite)
    └──> Supabase
           ├─ Postgres + Row Level Security   who can see what (enforced by the database)
           ├─ Auth                            emailed-code/link and password logins
-          ├─ Storage                         plans, photos, selection uploads (private)
           └─ Edge Functions                  sign-in emails, invites, inquiry emails, notifications,
-                 │                           calendar feed
-                 └──> Resend (email)
+                 │                           calendar feed, file access (`files`)
+                 ├──> Resend (email)
+                 └──> Cloudflare R2           plans, photos, selection and inquiry uploads (private
+                                              bucket; browsers get short-lived signed links only
+                                              after the database's permission check)
 ```
 
 ### Who sees what
@@ -66,7 +69,10 @@ Needs Node 20+ and Docker Desktop (running).
 
 ```bash
 npm install
-npx supabase start          # local database, auth, storage, and email catcher
+npx supabase start          # local database, auth, and email catcher
+# Local stand-in for Cloudflare R2 (file storage), then create its bucket:
+docker run -d --name fch-r2 --network supabase_network_FCHWebsite -p 9000:9000 -e RUSTFS_ACCESS_KEY=minioadmin -e RUSTFS_SECRET_KEY=minioadmin rustfs/rustfs
+node scripts/local-r2-setup.mjs
 cp .env.example .env.local  # then paste the "anon key" from `npx supabase status`
 cp supabase/functions/.env.example supabase/functions/.env
 npx supabase functions serve   # in a second terminal
@@ -89,7 +95,12 @@ npm run dev                    # http://localhost:5173 (portal at /app/)
    npx supabase functions deploy
    npx supabase secrets set SITE_URL=https://firstchoicehomesllc.org OFFICE_EMAIL=firstchoicehomesllc@yahoo.com
    npx supabase secrets set RESEND_API_KEY=<from Resend> TURNSTILE_SECRET=<from Cloudflare>
+   npx supabase secrets set R2_ACCOUNT_ID=<id> R2_ACCESS_KEY_ID=<key> R2_SECRET_ACCESS_KEY=<secret> R2_BUCKET=<bucket>
    ```
+   For R2: in Cloudflare, *R2 → Create bucket* (private). Under the bucket's *Settings → CORS policy*,
+   allow `GET` and `PUT` from `https://firstchoicehomesllc.org` with any header. Then *R2 → Manage API
+   tokens → Create API token* with *Object Read & Write* on that bucket; it shows the access key and
+   secret once. The account ID is on the R2 overview page.
 3. **Resend:** add and verify the domain `firstchoicehomesllc.org` (Resend shows DNS records to add
    in GoDaddy; they don't affect existing email). Sign-in and invitation emails are sent by the
    `send-sign-in-email` and `invite-user` functions through Resend's API (`RESEND_API_KEY`), not by
@@ -115,9 +126,14 @@ npm run dev                    # http://localhost:5173 (portal at /app/)
 free projects pause after a week without activity, so move to Pro ($25/mo, includes daily backups)
 once clients are using it.
 
-**Photo storage:** photos go in Supabase file storage, shrunk to about 1.5 MB each plus a small
-thumbnail. Free includes 1 GB (roughly 650 photos); Pro includes 100 GB (roughly 65,000), then
-$0.0213 per GB per month.
+**Photo storage:** photos go in Cloudflare R2, shrunk to at most 1.5 MB each (usually a few hundred
+KB) plus a small thumbnail. R2 includes 10 GB free, then about $0.015 per GB per month, with no
+download fees. The overview's *Space used* card shows files and database against limits you set.
+
+**Moving files from Supabase Storage (one time):** the `copy-files-to-r2` function copies every
+stored file into R2 under the same paths, using the R2 secrets already in Supabase; the comment at
+the top of `supabase/functions/copy-files-to-r2/index.ts` shows how to run it. It skips files
+already copied, so it's safe to run again; it never deletes anything from Supabase.
 
 ## Editing the website
 - **Text:** edit `index.html`; each section has a comment.

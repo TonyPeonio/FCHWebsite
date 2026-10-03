@@ -14,7 +14,7 @@ export const usePeople = () => useQuery({ queryKey: ["people"], queryFn: api.fet
 export const useQuotes = () => useQuery({ queryKey: ["quotes"], queryFn: api.fetchQuotes });
 
 /** Signed URLs for a list of storage paths, refreshed before they expire. */
-export const useSignedUrls = (bucket: string, paths: string[]) =>
+export const useSignedUrls = (bucket: "project-files" | "quote-uploads", paths: string[]) =>
   useQuery({
     queryKey: ["signed", bucket, [...paths].sort()],
     queryFn: () => api.signedUrls(bucket, paths),

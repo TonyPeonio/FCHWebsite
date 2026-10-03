@@ -450,3 +450,9 @@ verify_jwt = false
 
 [functions.calendar-ics]
 verify_jwt = false
+
+[functions.files]
+verify_jwt = false
+
+[functions.copy-files-to-r2]
+verify_jwt = false

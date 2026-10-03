@@ -39,7 +39,6 @@ export interface CustomStatus {
 
 export interface SpaceUsed {
   database_bytes: number;
-  buckets: { bucket_id: string; files: number; bytes: number }[];
 }
 
 export interface UsageLimits {

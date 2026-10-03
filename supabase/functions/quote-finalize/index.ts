@@ -3,14 +3,10 @@
 // confirmation to the client.
 import { adminClient, env, escapeHtml, HttpError, json, serve } from "../_shared/util.ts";
 import { layout, sendMail } from "../_shared/mail.ts";
+import { list, presign, remove } from "../_shared/r2.ts";
 
 const LINK_TTL_SECONDS = 60 * 60 * 24 * 7;
-
-// Locally, SUPABASE_URL is Docker's internal address; emails need the browser-reachable one.
-function publicUrl(url: string): string {
-  const external = Deno.env.get("PUBLIC_SUPABASE_URL");
-  return external ? url.replace(Deno.env.get("SUPABASE_URL")!, external.replace(/\/$/, "")) : url;
-}
+const MAX_FILE_BYTES = 50 * 1024 * 1024; // upload links can't enforce a size, so it's checked here
 
 serve(async (req) => {
   if (req.method !== "POST") throw new HttpError(405, "Method not allowed");
@@ -27,10 +23,11 @@ serve(async (req) => {
     .maybeSingle();
   if (!quote) throw new HttpError(404, "Inquiry not found or already submitted");
 
-  // Keep only files that actually finished uploading.
-  const { data: stored } = await db.storage.from("quote-uploads").list(quoteId);
-  const storedNames = new Set((stored ?? []).map((o) => `${quoteId}/${o.name}`));
-  const paths: string[] = quote.file_paths.filter((p: string) => storedNames.has(p));
+  // Keep only files that actually finished uploading, and delete anything too big or unexpected.
+  const stored = await list("quote-uploads", `${quoteId}/`);
+  const keep = stored.filter((o) => o.size <= MAX_FILE_BYTES && quote.file_paths.includes(o.path)).map((o) => o.path);
+  await remove("quote-uploads", stored.map((o) => o.path).filter((p) => !keep.includes(p)));
+  const paths: string[] = quote.file_paths.filter((p: string) => keep.includes(p));
 
   const { error } = await db
     .from("quote_requests")
@@ -40,8 +37,7 @@ serve(async (req) => {
 
   const links: { name: string; url: string }[] = [];
   for (const path of paths) {
-    const { data } = await db.storage.from("quote-uploads").createSignedUrl(path, LINK_TTL_SECONDS);
-    if (data) links.push({ name: path.split("/").pop()!.replace(/^\d+-/, ""), url: publicUrl(data.signedUrl) });
+    links.push({ name: path.split("/").pop()!.replace(/^\d+-/, ""), url: await presign("quote-uploads", path, "GET", LINK_TTL_SECONDS) });
   }
 
   const row = (label: string, value: string | null) =>

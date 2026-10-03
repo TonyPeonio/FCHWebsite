@@ -122,9 +122,20 @@ const safeName = (name: string) =>
   name.normalize("NFKD").replace(/[^\w.\-]+/g, "_").replace(/_+/g, "_").slice(-100) || "file";
 
 const SHRINKABLE = ["image/jpeg", "image/png", "image/webp"];
-const BUCKET = "project-files";
 const UPLOAD_TIMEOUT_MS = 3 * 60_000;
-const MAX_FILE_BYTES = 50 * 1024 * 1024; // the project-files bucket limit
+const MAX_FILE_BYTES = 50 * 1024 * 1024;
+
+// Files live in Cloudflare R2. The `files` function checks permissions and hands out short-lived
+// links to upload (PUT) or download each file; see supabase/functions/files.
+type FileArea = "project-files" | "quote-uploads";
+const files = <T = unknown>(body: Record<string, unknown>) => callFunction<T>("files", body);
+
+async function putFile(url: string, body: Blob, contentType: string) {
+  const res = await fetch(url, { method: "PUT", body, headers: contentType ? { "Content-Type": contentType } : {} });
+  if (!res.ok) throw new Error(`The upload failed (${res.status})`);
+}
+
+const removeFiles = (paths: string[]) => (paths.length ? files({ action: "delete", paths }) : Promise.resolve());
 
 /** Rejects if `promise` hasn't settled in time: a stalled phone upload would otherwise wait forever. */
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
@@ -157,25 +168,18 @@ async function storeFile(file: File, folder: string) {
   const upload = await shrinkIfImage(file);
   // Checked here so a phone doesn't spend minutes sending a file the server will refuse.
   if (upload.size > MAX_FILE_BYTES) throw new Error("It's larger than 50 MB");
-  const thumb =SHRINKABLE.includes(upload.type) ? await resize(upload, 0.06, 480, "image/jpeg") : null;
+  const thumb = SHRINKABLE.includes(upload.type) ? await resize(upload, 0.06, 480, "image/jpeg") : null;
   const id = crypto.randomUUID();
   const path = `${folder}/${id}-${safeName(file.name)}`;
-  const bucket = supabase.storage.from(BUCKET);
-  check(
-    await withTimeout(
-      bucket.upload(path, upload, { contentType: upload.type }),
-      UPLOAD_TIMEOUT_MS,
-      "The upload took too long. Check your connection and try again",
-    ),
-  );
   let thumbPath: string | null = thumb ? `${folder}/thumbs/${id}.jpg` : null;
+  const { urls } = await files<{ urls: Record<string, string> }>({ action: "upload", paths: [path, ...(thumbPath ? [thumbPath] : [])] });
+  await withTimeout(putFile(urls[path], upload, upload.type), UPLOAD_TIMEOUT_MS, "The upload took too long. Check your connection and try again");
   if (thumb && thumbPath) {
     // Without a thumbnail the grid just shows the full photo.
-    const { error } = await bucket.upload(thumbPath, thumb, { contentType: "image/jpeg" });
-    if (error) thumbPath = null;
+    await putFile(urls[thumbPath], thumb, "image/jpeg").catch(() => (thumbPath = null));
   }
   const row = { storage_path: path, thumb_path: thumbPath, file_name: file.name, mime_type: upload.type || null, size_bytes: upload.size };
-  const discard = () => bucket.remove([path, ...(thumbPath ? [thumbPath] : [])]);
+  const discard = () => removeFiles([path, ...(thumbPath ? [thumbPath] : [])]).catch(() => {});
   return { path, row, discard };
 }
 
@@ -241,15 +245,15 @@ export async function uploadToLibrary(file: File) {
 
 /** Moves a photo-dump photo (and its thumbnail) into a project's files. */
 export async function assignPhoto(doc: Doc, projectId: string) {
-  const bucket = supabase.storage.from(BUCKET);
+  const move = (from: string, to: string) => files({ action: "move", from, to });
   const to = `${projectId}/docs/${doc.storage_path.split("/").pop()}`;
-  check(await bucket.move(doc.storage_path, to));
+  await move(doc.storage_path, to);
 
   let thumbTo: string | null = null;
   if (doc.thumb_path) {
     thumbTo = `${projectId}/docs/thumbs/${doc.thumb_path.split("/").pop()}`;
-    if ((await bucket.move(doc.thumb_path, thumbTo)).error) {
-      await bucket.remove([doc.thumb_path]);
+    if (await move(doc.thumb_path, thumbTo).then(() => false, () => true)) {
+      await removeFiles([doc.thumb_path]).catch(() => {});
       thumbTo = null;
     }
   }
@@ -260,23 +264,9 @@ export async function assignPhoto(doc: Doc, projectId: string) {
     .eq("id", doc.id);
   if (error) {
     // Put the files back so the photo stays in the dump.
-    await bucket.move(to, doc.storage_path);
-    if (thumbTo && doc.thumb_path) await bucket.move(thumbTo, doc.thumb_path);
+    await move(to, doc.storage_path);
+    if (thumbTo && doc.thumb_path) await move(thumbTo, doc.thumb_path);
     throw new Error(error.message);
-  }
-}
-
-/** Every file under a storage folder, subfolders included. */
-async function listFiles(prefix: string): Promise<string[]> {
-  const files: string[] = [];
-  for (let offset = 0; ; offset += 1000) {
-    const items = check(await supabase.storage.from(BUCKET).list(prefix, { limit: 1000, offset }));
-    for (const item of items) {
-      const path = `${prefix}/${item.name}`;
-      if (item.id === null) files.push(...(await listFiles(path))); // a folder
-      else files.push(path);
-    }
-    if (items.length < 1000) return files;
   }
 }
 
@@ -285,12 +275,9 @@ async function listFiles(prefix: string): Promise<string[]> {
  * and file records; stored files aren't removed with them, so they're deleted here too.
  */
 export async function deleteProject(id: string) {
-  const files = await listFiles(id);
   const deleted = check(await supabase.from("projects").delete().eq("id", id).select("id"));
   if (!deleted.length) throw new Error("The project couldn't be deleted");
-  for (let i = 0; i < files.length; i += 100) {
-    await supabase.storage.from(BUCKET).remove(files.slice(i, i + 100));
-  }
+  await files({ action: "deleteFolder", projectId: id });
 }
 
 export async function fetchDocuments(filter: { projectId?: string; selectionId?: string; library?: boolean } = {}): Promise<Doc[]> {
@@ -304,7 +291,7 @@ export async function fetchDocuments(filter: { projectId?: string; selectionId?:
 
 export async function deleteDocument(doc: Doc) {
   check(await supabase.from("documents").delete().eq("id", doc.id));
-  await supabase.storage.from(BUCKET).remove([doc.storage_path, ...(doc.thumb_path ? [doc.thumb_path] : [])]);
+  await removeFiles([doc.storage_path, ...(doc.thumb_path ? [doc.thumb_path] : [])]);
 }
 
 export async function setDocumentVisibility(id: string, client_visible: boolean) {
@@ -315,15 +302,17 @@ export async function setShowOnWebsite(id: string, show_on_website: boolean) {
   check(await supabase.from("documents").update({ show_on_website }).eq("id", id));
 }
 
-/** Returns a map of storage path -> short-lived signed URL. */
-export async function signedUrls(bucket: string, paths: string[], expiresIn = 3600): Promise<Record<string, string>> {
+/** Returns a map of storage path -> download link good for an hour (only paths the caller may see). */
+export async function signedUrls(area: FileArea, paths: string[]): Promise<Record<string, string>> {
   const unique = [...new Set(paths.filter(Boolean))];
   if (!unique.length) return {};
-  const data = check(await supabase.storage.from(bucket).createSignedUrls(unique, expiresIn));
-  const map: Record<string, string> = {};
-  for (const item of data) if (item.signedUrl && item.path) map[item.path] = item.signedUrl;
-  return map;
+  return (await files<{ urls: Record<string, string> }>({ action: "sign", area, paths: unique })).urls;
 }
+
+export interface FileUsage {
+  areas: { area: FileArea; files: number; bytes: number }[];
+}
+export const fetchFileUsage = () => files<FileUsage>({ action: "usage" });
 
 // ---------------------------------------------------------------- selections
 export async function fetchSelections(projectId?: string): Promise<Selection[]> {

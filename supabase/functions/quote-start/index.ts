@@ -1,7 +1,8 @@
 // Step 1 of a quote request from the public website.
 // Checks the Turnstile anti-spam token, saves a draft quote, and returns signed upload
-// URLs so the browser can upload house plans straight to private storage.
+// URLs so the browser can upload house plans straight to private storage (R2).
 import { adminClient, HttpError, isEmail, json, serve } from "../_shared/util.ts";
+import { presign } from "../_shared/r2.ts";
 
 const MAX_FILES = 10;
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
@@ -66,12 +67,9 @@ serve(async (req) => {
   });
   if (error) throw error;
 
+  // quote-finalize keeps only files that arrived, and drops any over the size limit.
   const uploads = [];
-  for (const path of paths) {
-    const { data, error: urlError } = await db.storage.from("quote-uploads").createSignedUploadUrl(path);
-    if (urlError) throw urlError;
-    uploads.push({ path, token: data.token });
-  }
+  for (const path of paths) uploads.push({ path, url: await presign("quote-uploads", path, "PUT", 60 * 60) });
 
   return json({ quoteId, uploads });
 });
