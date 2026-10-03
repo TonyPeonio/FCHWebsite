@@ -20,6 +20,7 @@ const ProjectDetail = named(() => import("./pages/admin/ProjectDetail"), "Projec
 const Quotes = named(() => import("./pages/admin/Quotes"), "Quotes");
 const PhotoDump = named(() => import("./pages/admin/PhotoDump"), "PhotoDump");
 const People = named(() => import("./pages/admin/People"), "People");
+const AllSelections = named(() => import("./pages/admin/AllSelections"), "AllSelections");
 
 export function App() {
   const { loading, session, isStaff, isOwner } = useAuth();
@@ -38,6 +39,7 @@ export function App() {
             <Route path="/admin/calendar" element={<MasterCalendar />} />
             <Route path="/admin/projects" element={<Projects />} />
             <Route path="/admin/projects/:id" element={<ProjectDetail />} />
+            <Route path="/admin/selections" element={<AllSelections />} />
             <Route path="/admin/quotes" element={<Quotes />} />
             <Route path="/admin/photos" element={<PhotoDump />} />
             <Route path="/admin/people" element={<People />} />

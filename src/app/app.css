@@ -232,3 +232,6 @@ legend { font-size: .88rem; color: var(--ink); padding: 0 4px; }
 .meter-ok { background: var(--ok); }
 .meter-warn { background: #d4a017; }
 .meter-error { background: var(--error); }
+
+/* All selections */
+.overdue { color: var(--error); font-weight: 700; }

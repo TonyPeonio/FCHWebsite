@@ -13,6 +13,7 @@ const staffNav = [
   { to: "/admin", label: "Overview", end: true },
   { to: "/admin/calendar", label: "Master Calendar" },
   { to: "/admin/projects", label: "Projects" },
+  { to: "/admin/selections", label: "Selections" },
   { to: "/admin/photos", label: "Photo dump" },
   { to: "/admin/quotes", label: "Inquiries" },
   { to: "/admin/people", label: "People" },

@@ -39,12 +39,12 @@ export function AdminHome() {
         <Link to="/admin/quotes" className="stat">
           <strong>{newQuotes.length}</strong> new {newQuotes.length === 1 ? "inquiry" : "inquiries"}
         </Link>
-        <div className="stat">
+        <Link to="/admin/selections?show=review" className="stat">
           <strong>{toReview.length}</strong> selection{toReview.length === 1 ? "" : "s"} to review
-        </div>
-        <div className="stat">
+        </Link>
+        <Link to="/admin/selections?show=waiting" className="stat">
           <strong>{waiting.length}</strong> waiting on clients{overdue.length > 0 && <em> · {overdue.length} overdue</em>}
-        </div>
+        </Link>
         <Link to="/admin/projects?stage=planning" className="stat">
           <strong>{inStage("planning").length}</strong> in planning
         </Link>
@@ -77,7 +77,10 @@ export function AdminHome() {
         </section>
 
         <section className="card">
-          <h2>Selections needing attention</h2>
+          <div className="card-head">
+            <h2>Selections needing attention</h2>
+            <Link to="/admin/selections">Selections →</Link>
+          </div>
           {[...toReview, ...overdue].length ? (
             <ul className="rows">
               {[...toReview, ...overdue].map((s) => (
