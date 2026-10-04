@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && vite build --config vite.demo.config.ts",
     "preview": "vite preview",
     "db:start": "supabase start",
     "db:reset": "supabase db reset",
     "db:test": "supabase test db",
-    "functions": "supabase functions serve"
+    "functions": "supabase functions serve",
+    "dev:demo": "vite --config vite.demo.config.ts --port 5174"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.21",

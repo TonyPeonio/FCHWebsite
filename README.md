@@ -145,6 +145,22 @@ already copied, so it's safe to run again; it never deletes anything from Supaba
   The front page lists each build type that has such photos, then projects as `City-Month-Year` (e.g. `Kalama-January-2025`)
   (served by the `public-gallery` function; changes appear within a minute).
 
+## Demo for prospective customers
+A sample copy of the website and portal with made-up projects, clients, and illustrated photos, at
+**https://firstchoicehomesllc.org/demo-k7m2q9/** (portal demo: `/demo-k7m2q9/app/`). It isn't linked
+from anywhere and asks search engines not to list it; share the link directly.
+
+- Visitors pick the owner's or a client's side, get a guided tour, and can switch sides from the bar
+  at the top. A banner and a SAMPLE DATA tag are on every page, and every picture is stamped
+  SAMPLE IMAGE.
+- It runs entirely in the visitor's browser: the build swaps the code that talks to Supabase/R2 for
+  in-browser stand-ins (`src/demo/`, wired up in `vite.demo.config.ts`), so it can't reach real data.
+  Changes last until the tab is closed; "Reset demo" starts over.
+- Sample data is in `src/demo/seed.ts`, the tour's steps in `src/demo/tour.tsx`, and the
+  illustrations in `src/demo/art.ts`.
+- `npm run build` builds it along with the real site; `npm run dev:demo` runs it locally at
+  http://localhost:5174/demo-k7m2q9/.
+
 ## Ideas for later
 Change orders with e-approval · allowance tracker for selections · per-project message thread ·
 warranty/punch-list requests · subcontractor logins (see only their events) · draw schedule ·

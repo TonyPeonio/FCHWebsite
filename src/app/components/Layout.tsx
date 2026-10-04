@@ -28,8 +28,8 @@ export function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="shell">
       <header className="topbar">
-        <a href="/" className="brand" title="Back to website">
-          <img src="/images/logo.png" alt="First Choice Homes" />
+        <a href={import.meta.env.BASE_URL} className="brand" title="Back to website">
+          <img src={`${import.meta.env.BASE_URL}images/logo.png`} alt="First Choice Homes" />
         </a>
         <button className="menu-btn" aria-expanded={open} aria-label="Menu" onClick={() => setOpen(!open)}>
           ☰

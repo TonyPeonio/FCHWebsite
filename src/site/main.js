@@ -1,4 +1,5 @@
 import "./styles.css";
+import { call, configured, formReady, spamCheckKey, uploadFile } from "./backend.js";
 
 // Footer year
 document.getElementById("year").textContent = new Date().getFullYear();
@@ -9,21 +10,6 @@ document.getElementById("year").textContent = new Date().getFullYear();
   const idx = (new Date().getDay() + 6) % 7;
   if (rows[idx]) rows[idx].classList.add("today");
 })();
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-// Calls an edge function; GET when there's no body.
-async function call(name, body) {
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
-    method: body === undefined ? "GET" : "POST",
-    headers: { "Content-Type": "application/json", apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "Request failed");
-  return data;
-}
 
 // Lightbox: openLightbox(photos, index) with photos = [{ full, caption }]
 const openLightbox = (function lightbox() {
@@ -60,7 +46,7 @@ const openLightbox = (function lightbox() {
 // until there's something to show.
 (async function ourWork() {
   const section = document.getElementById("our-work");
-  if (!SUPABASE_URL || !SUPABASE_KEY) return;
+  if (!configured) return;
   let categories;
   try {
     ({ categories } = await call("public-gallery"));
@@ -150,7 +136,7 @@ const openLightbox = (function lightbox() {
   const EMAIL = "firstchoicehomesllc@yahoo.com";
   // Always handle submit ourselves so the browser never does a default submit (which would put
   // the visitor's details in the URL). Without Supabase settings, point people to email/phone.
-  if (!SUPABASE_URL || !SUPABASE_KEY || !import.meta.env.VITE_TURNSTILE_SITE_KEY) {
+  if (!formReady) {
     form.addEventListener("submit", (e) => {
       e.preventDefault();
       status.textContent = `Online inquiries are almost ready. For now, please email us at ${EMAIL} or call (360) 673-2926.`;
@@ -162,17 +148,19 @@ const openLightbox = (function lightbox() {
   let widgetId = null;
 
   // Cloudflare Turnstile: invisible-ish spam check, loaded on demand.
-  window.onTurnstileLoad = () => {
-    widgetId = window.turnstile.render("#turnstile", {
-      sitekey: import.meta.env.VITE_TURNSTILE_SITE_KEY,
-      callback: (token) => (turnstileToken = token),
-      "expired-callback": () => (turnstileToken = ""),
-    });
-  };
-  const ts = document.createElement("script");
-  ts.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onTurnstileLoad";
-  ts.async = true;
-  document.head.appendChild(ts);
+  if (spamCheckKey) {
+    window.onTurnstileLoad = () => {
+      widgetId = window.turnstile.render("#turnstile", {
+        sitekey: spamCheckKey,
+        callback: (token) => (turnstileToken = token),
+        "expired-callback": () => (turnstileToken = ""),
+      });
+    };
+    const ts = document.createElement("script");
+    ts.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onTurnstileLoad";
+    ts.async = true;
+    document.head.appendChild(ts);
+  }
 
   function renderFiles() {
     fileList.innerHTML = "";
@@ -203,7 +191,7 @@ const openLightbox = (function lightbox() {
     if (!form.reportValidity()) return;
     const tooBig = files.find((f) => f.size > 50 * 1024 * 1024);
     if (tooBig) return (status.textContent = `"${tooBig.name}" is larger than 50 MB.`);
-    if (!turnstileToken) return (status.textContent = "Please wait a moment for the spam check to finish, then try again.");
+    if (spamCheckKey && !turnstileToken) return (status.textContent = "Please wait a moment for the spam check to finish, then try again.");
 
     submitBtn.disabled = true;
     status.textContent = "Sending…";
@@ -219,8 +207,7 @@ const openLightbox = (function lightbox() {
       });
       for (const [i, up] of uploads.entries()) {
         status.textContent = `Uploading ${i + 1} of ${uploads.length}…`;
-        const res = await fetch(up.url, { method: "PUT", body: files[i] }).catch(() => null);
-        if (!res?.ok) throw new Error(`Couldn't upload ${files[i].name}`);
+        if (!(await uploadFile(up.url, files[i]))) throw new Error(`Couldn't upload ${files[i].name}`);
       }
       await call("quote-finalize", { quoteId });
       form.reset();
