@@ -1,6 +1,7 @@
 import imageCompression from "browser-image-compression";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
+import { withDefaults, type SiteContent } from "./siteContent";
 import type {
   CalendarProject,
   CalEvent,
@@ -181,6 +182,34 @@ async function storeFile(file: File, folder: string) {
   const row = { storage_path: path, thumb_path: thumbPath, file_name: file.name, mime_type: upload.type || null, size_bytes: upload.size };
   const discard = () => removeFiles([path, ...(thumbPath ? [thumbPath] : [])]).catch(() => {});
   return { path, row, discard };
+}
+
+// ---------------------------------------------------------------- website content
+export async function fetchSiteContent(): Promise<SiteContent> {
+  const { data, error } = await supabase.from("site_content").select("content").eq("id", 1).single();
+  if (error) throw new Error(error.message);
+  return withDefaults(data.content as Partial<SiteContent>);
+}
+
+export async function saveSiteContent(content: SiteContent) {
+  check(await supabase.from("site_content").update({ content }).eq("id", 1).select("id").single());
+}
+
+/** Uploads a replacement home-page photo under site/ and returns its path. */
+export async function uploadSitePhoto(file: File): Promise<string> {
+  // The website shows it as-is, so it must be a format every browser can display.
+  if (!SHRINKABLE.includes(file.type)) throw new Error("Use a JPG, PNG, or WebP photo");
+  const upload = await shrinkIfImage(file);
+  if (upload.size > MAX_FILE_BYTES) throw new Error("It's larger than 50 MB");
+  const path = `site/${crypto.randomUUID()}-${safeName(file.name)}`;
+  const { urls } = await files<{ urls: Record<string, string> }>({ action: "upload", paths: [path] });
+  await withTimeout(putFile(urls[path], upload, upload.type), UPLOAD_TIMEOUT_MS, "The upload took too long. Check your connection and try again");
+  return path;
+}
+
+/** Deletes a home-page photo that's been replaced; leftovers only waste space, so errors are ignored. */
+export async function removeSitePhoto(path: string) {
+  if (path.startsWith("site/")) await removeFiles([path]).catch(() => {});
 }
 
 export async function uploadToProject(

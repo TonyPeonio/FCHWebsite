@@ -17,6 +17,7 @@ import type {
   SpaceUsed,
   UsageLimits,
 } from "../lib/types";
+import { withDefaults, type SiteContent } from "../lib/siteContent";
 import { db, fileUrl, newId, rememberUpload, save } from "./store";
 import { currentUserId, getRole } from "./session";
 
@@ -180,6 +181,29 @@ async function storeFile(file: File, folder: string) {
   rememberUpload(path, file, await savedCopy(file), file.size);
   const row = { storage_path: path, thumb_path: null, file_name: file.name, mime_type: file.type || null, size_bytes: file.size };
   return { path, row };
+}
+
+// ---------------------------------------------------------------- website content
+export async function fetchSiteContent(): Promise<SiteContent> {
+  requireOwner();
+  return done(withDefaults(db.site));
+}
+
+export async function saveSiteContent(content: SiteContent) {
+  requireOwner();
+  db.site = copy(content);
+  await done(null);
+}
+
+export async function uploadSitePhoto(file: File): Promise<string> {
+  requireOwner();
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) throw new Error("Use a JPG, PNG, or WebP photo");
+  return done((await storeFile(file, "site")).path);
+}
+
+export async function removeSitePhoto(path: string) {
+  if (path.startsWith("site/")) delete db.files[path];
+  await done(null);
 }
 
 function addDoc(fields: Partial<Doc> & Pick<Doc, "storage_path" | "file_name" | "kind">): Doc {

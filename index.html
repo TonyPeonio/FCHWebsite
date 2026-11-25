@@ -50,15 +50,16 @@
   </header>
 
   <main>
-    <!-- Hero -->
+    <!-- Hero (the text, photos, contact details, and hours marked data-edit/data-photo/data-edit-* are
+         editable in the portal: Website page; see src/lib/siteContent.ts) -->
     <section class="hero">
       <div class="container narrow">
-        <h1>Custom Home Builders: Cultivating Your Dream Home</h1>
-        <p>Transforming your visions into beautiful custom homes with care through our expert home building services, ensuring your dream home construction becomes a reality.</p>
+        <h1 data-edit="heroTitle">Custom Home Builders: Cultivating Your Dream Home</h1>
+        <p data-edit="heroText">Transforming your visions into beautiful custom homes with care through our expert home building services, ensuring your dream home construction becomes a reality.</p>
         <a href="#contact" class="btn">Send Us an Inquiry</a>
       </div>
       <div class="container">
-        <img class="hero-img" src="images/hero.jpg" alt="White farmhouse built by First Choice Homes" width="1600" height="1200">
+        <img class="hero-img" data-photo="hero" src="images/hero.jpg" alt="White farmhouse built by First Choice Homes" width="1600" height="1200">
       </div>
     </section>
 
@@ -67,10 +68,10 @@
       <div class="container">
         <h2 class="section-title light">Building Dreams Together</h2>
         <div class="split">
-          <img src="images/building-dreams.jpg" alt="House blueprints with rolled plans and a drafting compass" loading="lazy" width="474" height="267">
+          <img data-photo="legacy" src="images/building-dreams.jpg" alt="House blueprints with rolled plans and a drafting compass" loading="lazy" width="474" height="267">
           <div class="split-text">
-            <h3>Our Legacy</h3>
-            <p>First Choice Homes LLC is a family owned and operated construction company with over two decades of experience in home building services. We focus on delivering small town quality in every custom home we build, ensuring your dream home construction vision becomes a reality.</p>
+            <h3 data-edit="legacyTitle">Our Legacy</h3>
+            <p data-edit="legacyText">First Choice Homes LLC is a family owned and operated construction company with over two decades of experience in home building services. We focus on delivering small town quality in every custom home we build, ensuring your dream home construction vision becomes a reality.</p>
           </div>
         </div>
       </div>
@@ -90,11 +91,11 @@
     <!-- Welcome -->
     <section class="welcome">
       <div class="split">
-        <img src="images/welcome.jpg" alt="The owners of First Choice Homes" loading="lazy" width="1053" height="1404">
+        <img data-photo="welcome" src="images/welcome.jpg" alt="The owners of First Choice Homes" loading="lazy" width="1053" height="1404">
         <div class="split-text">
           <h2>Welcome</h2>
-          <p>We’re a family-owned custom home builder with 20+ years of experience. We craft homes that reflect your vision, lifestyle, and personality, treating every project with care, quality, and integrity.</p>
-          <p><strong>We build more than houses — we build homes you’ll love for a lifetime.</strong></p>
+          <p data-edit="welcomeText">We’re a family-owned custom home builder with 20+ years of experience. We craft homes that reflect your vision, lifestyle, and personality, treating every project with care, quality, and integrity.</p>
+          <p><strong data-edit="welcomeTagline">We build more than houses — we build homes you’ll love for a lifetime.</strong></p>
           <a href="#contact" class="btn btn-light">Find Out More</a>
         </div>
       </div>
@@ -127,7 +128,7 @@
     <section class="faq">
       <div class="container narrow">
         <h2 class="section-title">Frequently Asked Questions</h2>
-        <p class="center">Please reach us at <a href="mailto:firstchoicehomesllc@yahoo.com">firstchoicehomesllc@yahoo.com</a> if you cannot find an answer to your question.</p>
+        <p class="center">Please reach us at <a data-edit-email href="mailto:firstchoicehomesllc@yahoo.com">firstchoicehomesllc@yahoo.com</a> if you cannot find an answer to your question.</p>
         <details>
           <summary>How long does it take to build a house?</summary>
           <p>Generally around nine months.</p>
@@ -158,6 +159,7 @@
               <textarea name="message" rows="6" placeholder="Let us know the details of what you are looking for, including house plans and material preferences."></textarea>
             </label>
             <div class="attach">
+              <p class="drop-hint">Drag and drop house plans or photos here, or</p>
               <label class="attach-btn">Attach house plans or photos
                 <input type="file" name="files" multiple hidden>
               </label>
@@ -176,8 +178,8 @@
 
             <h4>First Choice Homes LLC</h4>
             <p>
-              <a href="https://maps.google.com/?q=175+N+First+St+Ste+A,+Kalama,+WA" target="_blank" rel="noopener">175 N First St Ste A, Kalama, WA, USA</a><br>
-              <a href="tel:+13606732926">(360) 673-2926</a>
+              <a data-edit-address href="https://maps.google.com/?q=175+N+First+St+Ste+A,+Kalama,+WA" target="_blank" rel="noopener">175 N First St Ste A, Kalama, WA, USA</a><br>
+              <a data-edit-phone href="tel:+13606732926">(360) 673-2926</a>
             </p>
 
             <h4>Hours</h4>

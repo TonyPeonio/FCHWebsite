@@ -1,5 +1,46 @@
 import "./styles.css";
 import { call, configured, formReady, spamCheckKey, uploadFile } from "./backend.js";
+import { DEFAULT_SITE_CONTENT, mapHref, telHref, withDefaults } from "../lib/siteContent";
+
+// How visitors reach the office; updated from the portal's Website page once it loads.
+const contact = { email: DEFAULT_SITE_CONTENT.email, phone: DEFAULT_SITE_CONTENT.phone };
+
+// Home-page content the owner edits in the portal (Website page). index.html already shows the
+// defaults, so if this can't load, the page simply keeps them.
+(async function siteContent() {
+  if (!configured) return;
+  let data;
+  try {
+    data = await call("site-content");
+  } catch {
+    return;
+  }
+  const c = withDefaults(data.content);
+  document.querySelectorAll("[data-edit]").forEach((el) => {
+    const value = c[el.dataset.edit];
+    if (typeof value === "string") el.textContent = value;
+  });
+  document.querySelectorAll(".hours td").forEach((td, i) => (td.textContent = c.hours[i]));
+  document.querySelectorAll("[data-edit-phone]").forEach((a) => {
+    a.textContent = c.phone;
+    a.href = telHref(c.phone);
+  });
+  document.querySelectorAll("[data-edit-email]").forEach((a) => {
+    a.textContent = c.email;
+    a.href = `mailto:${c.email}`;
+  });
+  document.querySelectorAll("[data-edit-address]").forEach((a) => {
+    a.textContent = c.address;
+    a.href = mapHref(c.address);
+  });
+  // Each spot crops photos to its own shape, so any replacement fits.
+  document.querySelectorAll("[data-photo]").forEach((img) => {
+    const url = data.photoUrls?.[img.dataset.photo];
+    if (url) img.src = url;
+  });
+  contact.email = c.email;
+  contact.phone = c.phone;
+})();
 
 // Footer year
 document.getElementById("year").textContent = new Date().getFullYear();
@@ -133,13 +174,12 @@ const openLightbox = (function lightbox() {
   const submitBtn = form.querySelector('button[type="submit"]');
   const fileInput = form.querySelector('input[type="file"]');
   const fileList = form.querySelector(".attach-list");
-  const EMAIL = "firstchoicehomesllc@yahoo.com";
   // Always handle submit ourselves so the browser never does a default submit (which would put
   // the visitor's details in the URL). Without Supabase settings, point people to email/phone.
   if (!formReady) {
     form.addEventListener("submit", (e) => {
       e.preventDefault();
-      status.textContent = `Online inquiries are almost ready. For now, please email us at ${EMAIL} or call (360) 673-2926.`;
+      status.textContent = `Online inquiries are almost ready. For now, please email us at ${contact.email} or call ${contact.phone}.`;
     });
     return;
   }
@@ -178,10 +218,29 @@ const openLightbox = (function lightbox() {
       fileList.appendChild(li);
     });
   }
-  fileInput.addEventListener("change", () => {
-    files = [...files, ...fileInput.files].slice(0, 10);
-    fileInput.value = "";
+  const addFiles = (list) => {
+    files = [...files, ...list].slice(0, 10);
     renderFiles();
+  };
+  fileInput.addEventListener("change", () => {
+    addFiles(fileInput.files);
+    fileInput.value = "";
+  });
+  // Files can also be dragged onto the attachments area.
+  const dropArea = form.querySelector(".attach");
+  dropArea.addEventListener("dragover", (e) => {
+    if (!e.dataTransfer.types.includes("Files")) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+    dropArea.classList.add("over");
+  });
+  dropArea.addEventListener("dragleave", (e) => {
+    if (!dropArea.contains(e.relatedTarget)) dropArea.classList.remove("over");
+  });
+  dropArea.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropArea.classList.remove("over");
+    addFiles(e.dataTransfer.files);
   });
 
   form.addEventListener("submit", async (e) => {
@@ -215,7 +274,7 @@ const openLightbox = (function lightbox() {
       renderFiles();
       status.textContent = "Thanks! We received your inquiry and will be in touch soon.";
     } catch (err) {
-      status.textContent = `${err.message}. You can also email us at ${EMAIL}.`;
+      status.textContent = `${err.message}. You can also email us at ${contact.email}.`;
     } finally {
       submitBtn.disabled = false;
       turnstileToken = "";

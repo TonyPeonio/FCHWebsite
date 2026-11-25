@@ -4,6 +4,7 @@ import type { CalEvent, CalendarProject } from "../lib/types";
 
 export const useProjects = () => useQuery({ queryKey: ["projects"], queryFn: api.fetchProjects });
 export const useCustomStatuses = () => useQuery({ queryKey: ["project-statuses"], queryFn: api.fetchCustomStatuses });
+export const useSiteContent = () => useQuery({ queryKey: ["site-content"], queryFn: api.fetchSiteContent });
 export const useCalendarProjects = () => useQuery({ queryKey: ["projects", "calendar"], queryFn: api.fetchCalendarProjects });
 export const useEvents = () => useQuery({ queryKey: ["events"], queryFn: api.fetchEvents });
 export const useSelections = (projectId?: string) =>

@@ -2,6 +2,7 @@
 // relative to today so the calendar always looks current.
 import type { CalEvent, CustomStatus, Doc, PersonRow, Project, Quote, Selection, UsageLimits } from "../lib/types";
 import type { Pattern, Room, Stage } from "./art";
+import type { SiteContent } from "../lib/siteContent";
 
 /** How a stored file is drawn: an illustration, a sample document, or something the visitor uploaded. */
 export type FileArt =
@@ -25,6 +26,8 @@ export interface DemoData {
   quotes: Quote[];
   limits: UsageLimits;
   files: Record<string, FileArt & { size: number }>;
+  /** Home-page content from the Website page (absent until the owner saves). */
+  site?: Partial<SiteContent>;
   nextId: number;
 }
 

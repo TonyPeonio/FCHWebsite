@@ -17,6 +17,7 @@ const staffNav = [
   { to: "/admin/photos", label: "Photo dump" },
   { to: "/admin/quotes", label: "Inquiries" },
   { to: "/admin/people", label: "People" },
+  { to: "/admin/website", label: "Website" },
 ];
 
 export function Layout({ children }: { children: ReactNode }) {

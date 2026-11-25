@@ -129,22 +129,89 @@ export function DocList({
   );
 }
 
-export function FilePicker({ files, onChange, accept, label = "Attach files" }: { files: File[]; onChange: (f: File[]) => void; accept?: string; label?: string }) {
+/** Whether a file matches an <input accept> list like "image/*,.pdf" (no list accepts anything). */
+function accepts(file: File, accept?: string): boolean {
+  if (!accept) return true;
+  const name = file.name.toLowerCase();
+  return accept.split(",").some((raw) => {
+    const rule = raw.trim().toLowerCase();
+    if (rule.startsWith(".")) return name.endsWith(rule);
+    if (rule.endsWith("/*")) return file.type.startsWith(rule.slice(0, -1));
+    return file.type === rule;
+  });
+}
+
+/**
+ * A drop target with a button to choose files: drag files onto it, or press the button.
+ * Dropped files that don't match `accept` are ignored, as the picker would hide them.
+ */
+export function DropZone({
+  onFiles,
+  accept,
+  multiple = true,
+  label,
+  hint,
+  disabled,
+}: {
+  onFiles: (files: File[]) => void;
+  accept?: string;
+  multiple?: boolean;
+  label: string;
+  hint?: string;
+  disabled?: boolean;
+}) {
+  const [over, setOver] = useState(false);
+  const take = (list: FileList | null) => {
+    const picked = Array.from(list ?? []).filter((f) => accepts(f, accept));
+    if (picked.length) onFiles(multiple ? picked : picked.slice(0, 1));
+  };
   return (
-    <div className="file-picker">
-      <label className="btn">
+    <div
+      className={`drop-zone${over ? " over" : ""}${disabled ? " disabled" : ""}`}
+      onDragOver={(e) => {
+        if (disabled || !e.dataTransfer.types.includes("Files")) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+        setOver(true);
+      }}
+      onDragLeave={(e) => {
+        // Only when the pointer actually leaves the zone, not when it crosses into a child.
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setOver(false);
+        if (!disabled) take(e.dataTransfer.files);
+      }}
+    >
+      <p className="drop-hint">{hint ?? (multiple ? "Drag and drop files here, or" : "Drag and drop a file here, or")}</p>
+      <label className={`btn${disabled ? " disabled" : ""}`}>
         {label}
         <input
           type="file"
-          multiple
+          multiple={multiple}
           accept={accept}
           hidden
+          disabled={disabled}
           onChange={(e) => {
-            onChange([...files, ...Array.from(e.target.files ?? [])]);
+            take(e.target.files);
             e.target.value = "";
           }}
         />
       </label>
+    </div>
+  );
+}
+
+export function FilePicker({ files, onChange, accept, label = "Attach files" }: { files: File[]; onChange: (f: File[]) => void; accept?: string; label?: string }) {
+  return (
+    <div className="file-picker">
+      <DropZone
+        accept={accept}
+        label={label}
+        hint={accept === "image/*" ? "Drag and drop photos here, or" : undefined}
+        onFiles={(added) => onChange([...files, ...added])}
+      />
       {files.length > 0 && (
         <ul>
           {files.map((f, i) => (

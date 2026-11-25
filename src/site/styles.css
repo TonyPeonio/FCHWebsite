@@ -310,7 +310,10 @@ h1, h2, h3, h4 {
 }
 
 /* Quote form attachments + spam check */
-.attach { margin-bottom: 14px; }
+.attach { margin-bottom: 14px; padding: 16px; border: 2px dashed #ccc; text-align: center; transition: border-color .15s, background .15s; }
+.attach.over { border-color: var(--ink); background: var(--light); }
+.attach .drop-hint { margin: 0 0 8px; font-size: .85rem; color: var(--text); }
+.attach .attach-list { text-align: left; }
 .attach-btn {
   display: inline-block;
   cursor: pointer;

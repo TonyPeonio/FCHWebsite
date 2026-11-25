@@ -1,0 +1,210 @@
+import { useEffect, useState, type FormEvent } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import * as api from "../../../lib/api";
+import { DAYS, SITE_PHOTOS, type SiteContent, type SitePhoto } from "../../../lib/siteContent";
+import { DropZone, ErrorNote } from "../../components/ui";
+import { useSignedUrls, useSiteContent } from "../../hooks";
+
+type TextKey = Exclude<keyof SiteContent, "hours" | "photos">;
+
+const TEXT_FIELDS: { key: TextKey; label: string; long?: boolean }[] = [
+  { key: "heroTitle", label: "Top of the page: heading" },
+  { key: "heroText", label: "Top of the page: text", long: true },
+  { key: "legacyTitle", label: "Building Dreams Together: heading" },
+  { key: "legacyText", label: "Building Dreams Together: text", long: true },
+  { key: "welcomeText", label: "Welcome: text", long: true },
+  { key: "welcomeTagline", label: "Welcome: closing line (bold)" },
+];
+
+const sameText = (a: SiteContent, b: SiteContent) =>
+  JSON.stringify({ ...a, photos: null }) === JSON.stringify({ ...b, photos: null });
+
+/** Owner-only: edit the public home page's hours, contact details, text, and photos. */
+export function Website() {
+  const qc = useQueryClient();
+  const saved = useSiteContent();
+  const [draft, setDraft] = useState<SiteContent | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (saved.data && !draft) setDraft(saved.data);
+  }, [saved.data, draft]);
+
+  const save = useMutation({
+    // Photos are saved as soon as they're uploaded, so keep whatever is saved for them now.
+    mutationFn: (d: SiteContent) => api.saveSiteContent({ ...d, photos: saved.data?.photos ?? {} }),
+    onSuccess: () => {
+      setNotice("Saved. The website shows the changes within about a minute.");
+      qc.invalidateQueries({ queryKey: ["site-content"] });
+    },
+  });
+
+  if (!draft || !saved.data) {
+    return <div className="page">{saved.error ? <ErrorNote error={saved.error} /> : "Loading…"}</div>;
+  }
+  const dirty = !sameText(draft, saved.data);
+  const set = (patch: Partial<SiteContent>) => {
+    setNotice(null);
+    setDraft({ ...draft, ...patch });
+  };
+  const problem =
+    draft.phone.replace(/\D/g, "").length < 10
+      ? "Enter the full phone number, with area code."
+      : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim())
+        ? "Enter a valid email address."
+        : null;
+
+  return (
+    <div className="page">
+      <div className="title-row">
+        <h1>Website</h1>
+        <a className="btn" href={import.meta.env.BASE_URL} target="_blank" rel="noopener">
+          View website
+        </a>
+      </div>
+      <p className="muted small">
+        Edit what visitors see on the home page. Text, hours, and contact details are saved when you press Save; photos are saved
+        as soon as they upload.
+      </p>
+
+      <form
+        onSubmit={(e: FormEvent) => {
+          e.preventDefault();
+          if (!problem) save.mutate(draft);
+        }}
+      >
+        <section className="card">
+          <h2>Hours</h2>
+          <div className="hours-grid">
+            {DAYS.map((day, i) => (
+              <label key={day}>
+                {day}
+                <input
+                  required
+                  maxLength={60}
+                  value={draft.hours[i]}
+                  placeholder="e.g. 09:00 am – 05:00 pm, or Closed"
+                  onChange={(e) => set({ hours: draft.hours.map((h, j) => (j === i ? e.target.value : h)) })}
+                />
+              </label>
+            ))}
+          </div>
+        </section>
+
+        <section className="card">
+          <h2>Contact details</h2>
+          <div className="grid-2 tight">
+            <label>
+              Phone
+              <input required type="tel" maxLength={30} value={draft.phone} onChange={(e) => set({ phone: e.target.value })} />
+            </label>
+            <label>
+              Email
+              <input required type="email" maxLength={120} value={draft.email} onChange={(e) => set({ email: e.target.value })} />
+            </label>
+          </div>
+          <label>
+            Address
+            <input required maxLength={160} value={draft.address} onChange={(e) => set({ address: e.target.value })} />
+          </label>
+          <p className="muted small">
+            Shown on the home page with a map link. Website inquiries are still emailed to the office address set up for the
+            portal.
+          </p>
+        </section>
+
+        <section className="card">
+          <h2>Text</h2>
+          {TEXT_FIELDS.map((f) => (
+            <label key={f.key}>
+              {f.label}
+              {f.long ? (
+                <textarea required rows={4} maxLength={1200} value={draft[f.key]} onChange={(e) => set({ [f.key]: e.target.value })} />
+              ) : (
+                <input required maxLength={160} value={draft[f.key]} onChange={(e) => set({ [f.key]: e.target.value })} />
+              )}
+            </label>
+          ))}
+        </section>
+
+        <div className="save-bar">
+          <button className="btn primary" disabled={!dirty || save.isPending || !!problem}>
+            {save.isPending ? "Saving…" : "Save changes"}
+          </button>
+          {dirty && (
+            <button type="button" className="link-btn small" onClick={() => setDraft(saved.data)}>
+              Undo changes
+            </button>
+          )}
+          {dirty && problem && <span className="notice error">{problem}</span>}
+          {notice && !dirty && <span className="notice ok">{notice}</span>}
+          <ErrorNote error={save.error} />
+        </div>
+      </form>
+
+      <section className="card">
+        <h2>Photos</h2>
+        <div className="site-photos">
+          {SITE_PHOTOS.map((p) => (
+            <PhotoSlot key={p.key} slot={p.key} />
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+/** One home-page photo: preview, replace by dropping or choosing a file, or go back to the original. */
+function PhotoSlot({ slot }: { slot: SitePhoto }) {
+  const qc = useQueryClient();
+  const saved = useSiteContent();
+  const info = SITE_PHOTOS.find((p) => p.key === slot)!;
+  const current = saved.data?.photos[slot];
+  const { data: urls } = useSignedUrls("project-files", current ? [current] : []);
+
+  const change = useMutation({
+    mutationFn: async (file: File | null) => {
+      const latest = await api.fetchSiteContent(); // never overwrite text saved meanwhile
+      const path = file ? await api.uploadSitePhoto(file) : null;
+      const photos = { ...latest.photos };
+      if (path) photos[slot] = path;
+      else delete photos[slot];
+      try {
+        await api.saveSiteContent({ ...latest, photos });
+      } catch (err) {
+        if (path) await api.removeSitePhoto(path);
+        throw err;
+      }
+      const old = latest.photos[slot];
+      if (old && old !== path) await api.removeSitePhoto(old);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["site-content"] }),
+  });
+
+  const src = current ? urls?.[current] : import.meta.env.BASE_URL + info.original;
+  return (
+    <div className="site-photo">
+      <h3>{info.label}</h3>
+      <p className="muted small">{info.shape} It's cropped to fit.</p>
+      {src ? <img src={src} alt={`Current ${info.label} photo`} /> : <div className="img-ph" />}
+      <DropZone
+        multiple={false}
+        accept="image/jpeg,image/png,image/webp"
+        label={change.isPending ? "Uploading…" : current ? "Choose a different photo" : "Replace photo"}
+        hint="Drag and drop a photo here, or"
+        disabled={change.isPending}
+        onFiles={([file]) => change.mutate(file)}
+      />
+      {current && (
+        <button
+          type="button"
+          className="link-btn small"
+          disabled={change.isPending}
+          onClick={() => confirm("Go back to the original photo?") && change.mutate(null)}
+        >
+          Use the original photo
+        </button>
+      )}
+      <ErrorNote error={change.error} />
+    </div>
+  );
+}

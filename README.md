@@ -136,7 +136,11 @@ the top of `supabase/functions/copy-files-to-r2/index.ts` shows how to run it. I
 already copied, so it's safe to run again; it never deletes anything from Supabase.
 
 ## Editing the website
-- **Text:** edit `index.html`; each section has a comment.
+- **Hours, contact details, main text, and the three section photos:** the owner edits these in the
+  portal (*Website*); they're stored in `site_content` and served by the `site-content` function.
+  The matching text in `index.html` (marked `data-edit`) is the fallback and must match the defaults
+  in `src/lib/siteContent.ts`.
+- **Other text:** edit `index.html`; each section has a comment.
 - **Our Work photos** come from the portal, not from files in this repo:
   1. Upload photos in *Photo dump* (owner only; works from a phone), then select them and move them
      into a project.

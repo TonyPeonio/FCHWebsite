@@ -49,6 +49,8 @@ select is((select count(*) from profiles), 1::bigint, 'Clients see only their ow
 select results_eq($$ select file_name from documents $$, $$ values ('visible.pdf') $$, 'Smith sees only client-visible docs in P1');
 select results_eq($$ select name from calendar_projects() $$, $$ values ('Smith Residence') $$,
   'Clients get only their own projects for the calendar');
+select is((select count(*) from site_content), 0::bigint, 'Clients cannot read the website settings');
+update site_content set content = '{"heroTitle": "Client was here"}';
 select results_eq(
   $$ select name from storage.objects where bucket_id = 'project-files' order by name $$,
   $$ values ('10000000-0000-0000-0000-000000000001/docs/thumbs/visible.jpg'), ('10000000-0000-0000-0000-000000000001/docs/visible.pdf') $$,
@@ -137,6 +139,8 @@ select is((select count(*) from documents), 0::bigint, 'Staff cannot see photos 
 select is((select count(*) from storage.objects where bucket_id in ('project-files', 'quote-uploads')), 0::bigint,
   'Staff cannot download photos or files');
 select is((select count(*) from quote_requests), 0::bigint, 'Staff cannot see website inquiries');
+select is((select count(*) from site_content), 0::bigint, 'Staff cannot read the website settings');
+update site_content set content = '{"heroTitle": "Staff was here"}';
 select is((select count(*) from profiles), 1::bigint, 'Staff see only their own profile');
 select is((select count(*) from project_members), 0::bigint, 'Staff cannot see who belongs to which project');
 -- Staff can't change anything; changes that wouldn't raise an error are checked as the owner below.
@@ -180,6 +184,10 @@ select is((select count(*) from projects), 3::bigint, 'Staff could not delete pr
 select is((select count(*) from quote_requests where status = 'declined'), 0::bigint, 'Staff could not change inquiry status');
 select is((select count(*) from documents where not client_visible), 1::bigint, 'Staff could not change file visibility');
 select is((select count(*) from documents where show_on_website), 0::bigint, 'Staff could not put photos on the website');
+select is((select content from site_content), '{}'::jsonb, 'Clients and staff could not change the website');
+select lives_ok($$ update site_content set content = '{"heroTitle": "Welcome home"}' $$, 'Owner can change the website');
+select is((select content ->> 'heroTitle' from site_content), 'Welcome home', 'Website change saved');
+select throws_ok($$ update site_content set content = '[]' $$, '23514', null, 'Website settings must be an object');
 select lives_ok($$ insert into events (title, starts_at) values ('Owner event', now()) $$, 'Owner can add calendar events');
 select lives_ok($$ update events set title = 'Framing inspection (moved)' where id = '20000000-0000-0000-0000-000000000001' $$, 'Owner can edit events');
 select is((select title from events where id = '20000000-0000-0000-0000-000000000001'), 'Framing inspection (moved)', 'Owner edit saved');
@@ -236,6 +244,7 @@ select set_config('request.jwt.claims', '{"role":"anon"}', true);
 select is((select count(*) from projects), 0::bigint, 'Anonymous users see nothing');
 select is((select count(*) from events), 0::bigint, 'Anonymous users see no events');
 select throws_ok($$ select * from calendar_projects() $$, '42501', null, 'Anonymous users cannot list projects');
+select is((select count(*) from site_content), 0::bigint, 'Anonymous users read the website only through its function');
 select is((select count(*) from documents), 0::bigint, 'Anonymous users see no photos, even ones on the website');
 select throws_ok($$ insert into quote_requests (email) values ('x@y.z') $$, '42501', null,
   'Anonymous users cannot write quotes directly (only through the edge function)');

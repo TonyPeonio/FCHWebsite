@@ -54,6 +54,11 @@ function gallery(projectId) {
 
 export async function call(name, body) {
   await pause();
+  if (name === "site-content") {
+    const photos = db.site?.photos ?? {};
+    const photoUrls = Object.fromEntries(Object.entries(photos).map(([k, p]) => [k, fileUrl(p)]).filter(([, url]) => url));
+    return { content: db.site ?? {}, photoUrls };
+  }
   if (name.startsWith("public-gallery")) return gallery(new URLSearchParams(name.split("?")[1] ?? "").get("project"));
   if (name === "quote-start") {
     const id = `q${++db.nextId}`;
