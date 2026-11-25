@@ -1,11 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as api from "../../../lib/api";
-import { DAYS, SITE_PHOTOS, type SiteContent, type SitePhoto } from "../../../lib/siteContent";
+import { DAYS, SITE_PHOTOS, type Faq, type Review, type SiteContent, type SitePhoto } from "../../../lib/siteContent";
 import { DropZone, ErrorNote } from "../../components/ui";
 import { useSignedUrls, useSiteContent } from "../../hooks";
 
-type TextKey = Exclude<keyof SiteContent, "hours" | "photos">;
+type TextKey = Exclude<keyof SiteContent, "hours" | "photos" | "reviews" | "faq">;
 
 const TEXT_FIELDS: { key: TextKey; label: string; long?: boolean }[] = [
   { key: "heroTitle", label: "Top of the page: heading" },
@@ -126,6 +126,79 @@ export function Website() {
           ))}
         </section>
 
+        <section className="card">
+          <h2>Reviews</h2>
+          <p className="muted small">Shown in this order. Remove them all to hide the reviews section.</p>
+          {draft.reviews.map((r, i) => {
+            const update = (patch: Partial<Review>) => set({ reviews: draft.reviews.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
+            return (
+              <fieldset key={i} className="list-item">
+                <legend>Review {i + 1}</legend>
+                <div className="grid-2 tight">
+                  <label>
+                    Title
+                    <input maxLength={80} value={r.title} placeholder="e.g. Home Renovation" onChange={(e) => update({ title: e.target.value })} />
+                  </label>
+                  <label>
+                    Stars
+                    <select value={r.stars} onChange={(e) => update({ stars: Number(e.target.value) })}>
+                      {[5, 4, 3, 2, 1].map((n) => (
+                        <option key={n} value={n}>
+                          {"★".repeat(n)} ({n})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Name
+                    <input required maxLength={80} value={r.name} onChange={(e) => update({ name: e.target.value })} />
+                  </label>
+                  <label>
+                    Date
+                    <input maxLength={40} value={r.date} placeholder="e.g. 2/12/2026" onChange={(e) => update({ date: e.target.value })} />
+                  </label>
+                </div>
+                <label>
+                  Review
+                  <textarea required rows={4} maxLength={1500} value={r.text} onChange={(e) => update({ text: e.target.value })} />
+                </label>
+                <ListControls index={i} count={draft.reviews.length} onChange={(order) => set({ reviews: order(draft.reviews) })} noun="review" />
+              </fieldset>
+            );
+          })}
+          <button
+            type="button"
+            className="btn"
+            onClick={() => set({ reviews: [...draft.reviews, { title: "", text: "", name: "", date: "", stars: 5 }] })}
+          >
+            + Add a review
+          </button>
+        </section>
+
+        <section className="card">
+          <h2>Frequently asked questions</h2>
+          {draft.faq.map((f, i) => {
+            const update = (patch: Partial<Faq>) => set({ faq: draft.faq.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
+            return (
+              <fieldset key={i} className="list-item">
+                <legend>Question {i + 1}</legend>
+                <label>
+                  Question
+                  <input required maxLength={200} value={f.question} onChange={(e) => update({ question: e.target.value })} />
+                </label>
+                <label>
+                  Answer
+                  <textarea required rows={3} maxLength={1500} value={f.answer} onChange={(e) => update({ answer: e.target.value })} />
+                </label>
+                <ListControls index={i} count={draft.faq.length} onChange={(order) => set({ faq: order(draft.faq) })} noun="question" />
+              </fieldset>
+            );
+          })}
+          <button type="button" className="btn" onClick={() => set({ faq: [...draft.faq, { question: "", answer: "" }] })}>
+            + Add a question
+          </button>
+        </section>
+
         <div className="save-bar">
           <button className="btn primary" disabled={!dirty || save.isPending || !!problem}>
             {save.isPending ? "Saving…" : "Save changes"}
@@ -149,6 +222,39 @@ export function Website() {
           ))}
         </div>
       </section>
+    </div>
+  );
+}
+
+/** Move up / move down / remove for one entry in an editable list. */
+function ListControls({
+  index,
+  count,
+  noun,
+  onChange,
+}: {
+  index: number;
+  count: number;
+  noun: string;
+  onChange: (reorder: <T>(list: T[]) => T[]) => void;
+}) {
+  const swap = (a: number, b: number) =>
+    onChange(<T,>(list: T[]) => list.map((x, i) => (i === a ? list[b] : i === b ? list[a] : x)));
+  return (
+    <div className="btn-row list-controls">
+      <button type="button" className="link-btn small" disabled={index === 0} onClick={() => swap(index, index - 1)}>
+        Move up
+      </button>
+      <button type="button" className="link-btn small" disabled={index === count - 1} onClick={() => swap(index, index + 1)}>
+        Move down
+      </button>
+      <button
+        type="button"
+        className="link-btn small danger"
+        onClick={() => confirm(`Remove this ${noun}?`) && onChange(<T,>(list: T[]) => list.filter((_, i) => i !== index))}
+      >
+        Remove
+      </button>
     </div>
   );
 }

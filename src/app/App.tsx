@@ -18,7 +18,6 @@ const MasterCalendar = named(() => import("./pages/admin/MasterCalendar"), "Mast
 const Projects = named(() => import("./pages/admin/Projects"), "Projects");
 const ProjectDetail = named(() => import("./pages/admin/ProjectDetail"), "ProjectDetail");
 const Quotes = named(() => import("./pages/admin/Quotes"), "Quotes");
-const PhotoDump = named(() => import("./pages/admin/PhotoDump"), "PhotoDump");
 const Website = named(() => import("./pages/admin/Website"), "Website");
 const People = named(() => import("./pages/admin/People"), "People");
 const AllSelections = named(() => import("./pages/admin/AllSelections"), "AllSelections");
@@ -42,7 +41,6 @@ export function App() {
             <Route path="/admin/projects/:id" element={<ProjectDetail />} />
             <Route path="/admin/selections" element={<AllSelections />} />
             <Route path="/admin/quotes" element={<Quotes />} />
-            <Route path="/admin/photos" element={<PhotoDump />} />
             <Route path="/admin/website" element={<Website />} />
             <Route path="/admin/people" element={<People />} />
             <Route path="/selections/:id" element={<SelectionDetail />} />

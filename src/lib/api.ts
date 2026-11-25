@@ -262,43 +262,6 @@ export async function uploadAll(files: File[], upload: (file: File) => Promise<u
   return failed;
 }
 
-/** Adds a photo to the owner's photo dump (no project yet). */
-export async function uploadToLibrary(file: File) {
-  const { row, discard } = await storeFile(file, "library");
-  const { error } = await supabase.from("documents").insert({ ...row, project_id: null, kind: "photo" });
-  if (error) {
-    await discard();
-    throw new Error(error.message);
-  }
-}
-
-/** Moves a photo-dump photo (and its thumbnail) into a project's files. */
-export async function assignPhoto(doc: Doc, projectId: string) {
-  const move = (from: string, to: string) => files({ action: "move", from, to });
-  const to = `${projectId}/docs/${doc.storage_path.split("/").pop()}`;
-  await move(doc.storage_path, to);
-
-  let thumbTo: string | null = null;
-  if (doc.thumb_path) {
-    thumbTo = `${projectId}/docs/thumbs/${doc.thumb_path.split("/").pop()}`;
-    if (await move(doc.thumb_path, thumbTo).then(() => false, () => true)) {
-      await removeFiles([doc.thumb_path]).catch(() => {});
-      thumbTo = null;
-    }
-  }
-
-  const { error } = await supabase
-    .from("documents")
-    .update({ project_id: projectId, storage_path: to, thumb_path: thumbTo })
-    .eq("id", doc.id);
-  if (error) {
-    // Put the files back so the photo stays in the dump.
-    await move(to, doc.storage_path);
-    if (thumbTo && doc.thumb_path) await move(thumbTo, doc.thumb_path);
-    throw new Error(error.message);
-  }
-}
-
 /**
  * Deletes a project for good. The database removes its client access, calendar tags, selections,
  * and file records; stored files aren't removed with them, so they're deleted here too.
@@ -309,10 +272,10 @@ export async function deleteProject(id: string) {
   await files({ action: "deleteFolder", projectId: id });
 }
 
-export async function fetchDocuments(filter: { projectId?: string; selectionId?: string; library?: boolean } = {}): Promise<Doc[]> {
+export async function fetchDocuments(filter: { projectId?: string; selectionId?: string } = {}): Promise<Doc[]> {
   let q = supabase.from("documents").select("*").order("created_at", { ascending: false });
-  // The owner's photo-dump rows have no project; only the photo dump asks for them.
-  q = filter.library ? q.is("project_id", null) : q.not("project_id", "is", null);
+  // Rows without a project were the old photo dump; keep them out of every list.
+  q = q.not("project_id", "is", null);
   if (filter.projectId) q = q.eq("project_id", filter.projectId);
   if (filter.selectionId) q = q.eq("selection_id", filter.selectionId);
   return check(await q);

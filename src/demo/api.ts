@@ -255,20 +255,6 @@ export async function uploadAll(files: File[], upload: (file: File) => Promise<u
   return failed;
 }
 
-export async function uploadToLibrary(file: File) {
-  requireOwner();
-  const { row } = await storeFile(file, "library");
-  addDoc({ ...row, project_id: null, kind: "photo" });
-  save();
-}
-
-export async function assignPhoto(doc: Doc, projectId: string) {
-  requireOwner();
-  const row = db.documents.find((d) => d.id === doc.id);
-  if (row) row.project_id = projectId;
-  await done(null);
-}
-
 export async function deleteProject(id: string) {
   requireOwner();
   db.projects = db.projects.filter((p) => p.id !== id);
@@ -283,12 +269,12 @@ export async function deleteProject(id: string) {
 const canSeeDoc = (d: Doc) =>
   d.project_id === null ? isOwner() : isOwner() || (isMember(d.project_id) && (d.client_visible || d.uploaded_by === me()));
 
-export async function fetchDocuments(filter: { projectId?: string; selectionId?: string; library?: boolean } = {}): Promise<Doc[]> {
+export async function fetchDocuments(filter: { projectId?: string; selectionId?: string } = {}): Promise<Doc[]> {
   await pause();
   return copy(
     db.documents
       .filter(canSeeDoc)
-      .filter((d) => (filter.library ? d.project_id === null : d.project_id !== null))
+      .filter((d) => d.project_id !== null)
       .filter((d) => !filter.projectId || d.project_id === filter.projectId)
       .filter((d) => !filter.selectionId || d.selection_id === filter.selectionId)
       .sort((a, b) => b.created_at.localeCompare(a.created_at)),

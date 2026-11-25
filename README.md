@@ -29,7 +29,7 @@ Browser ──> GitHub Pages (static files built by Vite)
 | | Owner | Staff | Client |
 |---|---|---|---|
 | Master calendar, including staff-only events (project names and colors only) | ✓ | ✓ (view only) | – |
-| Projects, photos and files, selections, inquiries, people, photo dump | ✓ | – | – |
+| Projects, photos and files, selections, inquiries, people, website settings | ✓ | – | – |
 | Add/change calendar events, projects, selections, files | ✓ | – | – |
 | Invite clients, add staff, change roles | ✓ | – | – |
 | Their project's schedule, selections, files | ✓ | – | ✓ (own projects only) |
@@ -136,14 +136,13 @@ the top of `supabase/functions/copy-files-to-r2/index.ts` shows how to run it. I
 already copied, so it's safe to run again; it never deletes anything from Supabase.
 
 ## Editing the website
-- **Hours, contact details, main text, and the three section photos:** the owner edits these in the
+- **Hours, contact details, main text, reviews, FAQ, and the three section photos:** the owner edits these in the
   portal (*Website*); they're stored in `site_content` and served by the `site-content` function.
   The matching text in `index.html` (marked `data-edit`) is the fallback and must match the defaults
   in `src/lib/siteContent.ts`.
 - **Other text:** edit `index.html`; each section has a comment.
 - **Our Work photos** come from the portal, not from files in this repo:
-  1. Upload photos in *Photo dump* (owner only; works from a phone), then select them and move them
-     into a project.
+  1. Upload photos on the project's *Photos & files* tab (works from a phone).
   2. Give the project a build type and city, then press *Mark completed*.
   3. On the project's *Photos & files* tab, press *Show on website* on the photos to show.
   The front page lists each build type that has such photos, then projects as `City-Month-Year` (e.g. `Kalama-January-2025`)

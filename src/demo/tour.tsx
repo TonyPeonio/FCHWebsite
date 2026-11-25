@@ -23,7 +23,6 @@ export const TOURS: Record<"owner" | "client", Step[]> = {
     { route: "/admin/projects/p-hartley", sel: ".tabs", title: "A project's home", body: "Each project has its schedule, selections, photos & files, and the clients who can see it. You decide which files the client sees, and which photos appear on the public website once it's done." },
     { route: "/admin/selections", sel: ".chips.filter", title: "Selections across every job", body: "Tile, paint, fixtures, anything the client needs to choose. See what's waiting on clients, what's overdue, and what needs your review." },
     { route: "/selections/s-hartley-counter", heading: "Review", title: "Approve or ask for changes", body: "Jordan picked a countertop and left a note. Approve it, or send it back with a comment. The client gets an email either way (not in this demo)." },
-    { route: "/admin/photos", sel: ".dump-grid", title: "Photo dump", body: "Snap photos on site from your phone, then sort them into projects later. Only you see this area." },
     { route: "/admin/quotes", sel: ".quote", title: "Website inquiries", body: "When someone fills out the website's inquiry form (with plans attached), it lands here and in your email. Track each one from new to project." },
     { route: "/admin/people", heading: "Invite someone", title: "Clients and staff", body: "Invite a client to their project by email; they sign in with a one-time code, no password to forget. Staff can be given calendar-only access." },
   ],

@@ -53,7 +53,7 @@ export function seed(): DemoData {
   const documents: Doc[] = [];
   let n = 0;
 
-  /** Adds a photo or file to a project (or the photo dump when projectId is null). */
+  /** Adds a photo or file to a project. */
   function addFile(
     projectId: string | null,
     art: FileArt,
@@ -146,9 +146,6 @@ export function seed(): DemoData {
   addFile("p-pine", { type: "room", kind: "kitchen", seed: 61 }, { name: "Pine kitchen", caption: "New kitchen", daysAgo: 200, website: true });
   addFile("p-pine", { type: "room", kind: "bath", seed: 62 }, { name: "Pine bath", caption: "Primary bath", daysAgo: 200, website: true });
   addFile("p-cedar", { type: "shop", seed: 71 }, { name: "Cedar shop", caption: "Finished shop", daysAgo: 330, website: true });
-  addFile(null, { type: "house", stage: "siding", seed: 81 }, { name: "Site visit 1", daysAgo: 1 });
-  addFile(null, { type: "room", kind: "bath", seed: 82 }, { name: "Site visit 2", daysAgo: 1 });
-  addFile(null, { type: "room", kind: "living", seed: 83 }, { name: "Site visit 3", daysAgo: 0 });
 
   // Selections: one waiting on the client, one waiting on the owner, one done.
   const option = (selection_id: string, i: number, label: string, description: string, art: FileArt) => {

@@ -33,6 +33,8 @@ const contact = { email: DEFAULT_SITE_CONTENT.email, phone: DEFAULT_SITE_CONTENT
     a.textContent = c.address;
     a.href = mapHref(c.address);
   });
+  renderReviews(c.reviews);
+  renderFaq(c.faq);
   // Each spot crops photos to its own shape, so any replacement fits.
   document.querySelectorAll("[data-photo]").forEach((img) => {
     const url = data.photoUrls?.[img.dataset.photo];
@@ -51,6 +53,41 @@ document.getElementById("year").textContent = new Date().getFullYear();
   const idx = (new Date().getDay() + 6) % 7;
   if (rows[idx]) rows[idx].classList.add("today");
 })();
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function renderReviews(reviews) {
+  const section = document.querySelector(".reviews");
+  section.hidden = reviews.length === 0;
+  section.querySelector(".review-grid").replaceChildren(
+    ...reviews.map((r) => {
+      const card = el("article", "review");
+      const avatar = el("div", "avatar", r.name.charAt(0).toUpperCase());
+      avatar.setAttribute("aria-hidden", "true");
+      const stars = el("div", "stars", "★".repeat(r.stars));
+      stars.setAttribute("aria-label", `${r.stars} out of 5 stars`);
+      card.append(avatar, stars);
+      if (r.title) card.append(el("h3", "", r.title));
+      card.append(el("p", "", `“${r.text}”`), el("footer", "", r.date ? `${r.name} · ${r.date}` : r.name));
+      return card;
+    }),
+  );
+}
+
+function renderFaq(faq) {
+  document.querySelector(".faq-list").replaceChildren(
+    ...faq.map((f) => {
+      const item = el("details");
+      item.append(el("summary", "", f.question), el("p", "", f.answer));
+      return item;
+    }),
+  );
+}
 
 // Lightbox: openLightbox(photos, index) with photos = [{ full, caption }]
 const openLightbox = (function lightbox() {

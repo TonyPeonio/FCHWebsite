@@ -87,7 +87,7 @@ export interface Selection {
 
 export interface Doc {
   id: string;
-  /** Null while the photo sits in the owner's photo dump. */
+  /** Only null for rows left from the old photo dump, which no list shows. */
   project_id: string | null;
   selection_id: string | null;
   uploaded_by: string | null;
