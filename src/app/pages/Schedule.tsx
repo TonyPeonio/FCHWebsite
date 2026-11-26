@@ -15,6 +15,7 @@ export function Schedule() {
   return (
     <div className="page">
       <h1>Project schedule</h1>
+      <p className="lead">Tap an event for details. Dates can shift with weather, inspections, and material deliveries; we keep this up to date.</p>
       {multiple && (
         <p className="legend">
           {projects.data?.map((p) => (
@@ -25,7 +26,6 @@ export function Schedule() {
         </p>
       )}
       <ScheduleCalendar events={events.data ?? []} projects={projectMap} onEventClick={setOpen} />
-      <p className="muted small">Dates can shift with weather, inspections, and material deliveries. We'll keep this updated.</p>
       <CalendarFeed compact />
 
       {open && (

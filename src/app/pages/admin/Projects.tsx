@@ -11,7 +11,7 @@ import {
   type ProjectCategory,
   type ProjectStatus,
 } from "../../../lib/types";
-import { ErrorNote, Modal, ProjectDot } from "../../components/ui";
+import { Empty, ErrorNote, Icon, Loading, Modal, ProjectDot, useToast } from "../../components/ui";
 import { useAuth } from "../../auth";
 import { fmtDate, useCustomStatuses, usePeople, useProjects, useSelections } from "../../hooks";
 
@@ -22,19 +22,23 @@ const PALETTE = ["#2f6f8f", "#b5651d", "#5b8c3a", "#8e44ad", "#c0392b", "#16a085
 export function ProjectForm({
   project,
   completing,
+  defaults,
   onClose,
 }: {
   project?: Project;
   /** Opened by "Mark completed" because the build type or city is missing. */
   completing?: boolean;
+  /** Starting values for a new project (e.g. the name and address from a website inquiry). */
+  defaults?: Partial<Project>;
   onClose: (saved?: Project) => void;
 }) {
   const qc = useQueryClient();
+  const toast = useToast();
   const statuses = useCustomStatuses();
   const [p, setP] = useState<Partial<Project>>(
     project
       ? { ...project, ...(completing && { status: "complete" as const, custom_status_id: null }) }
-      : { name: "", address: "", status: "planning", color: PALETTE[Math.floor(Math.random() * PALETTE.length)] },
+      : { name: "", address: "", status: "planning", color: PALETTE[Math.floor(Math.random() * PALETTE.length)], ...defaults },
   );
   const save = useMutation({
     mutationFn: () =>
@@ -49,6 +53,7 @@ export function ProjectForm({
       }),
     onSuccess: (saved) => {
       qc.invalidateQueries({ queryKey: ["projects"] });
+      toast(project ? "Project saved." : "Project created.");
       onClose(saved);
     },
   });
@@ -66,7 +71,8 @@ export function ProjectForm({
         )}
         <label>
           Name
-          <input required value={p.name ?? ""} onChange={(e) => setP({ ...p, name: e.target.value })} placeholder="e.g. Smith Residence" />
+          <input required autoFocus={!project} value={p.name ?? ""} onChange={(e) => setP({ ...p, name: e.target.value })} placeholder="e.g. Smith Residence" />
+          <span className="hint">Only you and the project's clients see this name; it's never shown on the website.</span>
         </label>
         <label>
           Address
@@ -95,6 +101,7 @@ export function ProjectForm({
               onChange={(e) => setP({ ...p, city: e.target.value })}
               placeholder="e.g. Kalama"
             />
+            <span className="hint">Labels the finished project on the website, e.g. Kalama-January-2025.</span>
           </label>
         </div>
         <div className="grid-2 tight">
@@ -125,6 +132,11 @@ export function ProjectForm({
           <label>
             Calendar color
             <input type="color" value={p.color} onChange={(e) => setP({ ...p, color: e.target.value })} />
+            <span className="swatches" role="group" aria-label="Suggested colors">
+              {PALETTE.map((c) => (
+                <button key={c} type="button" className={`swatch${p.color === c ? " on" : ""}`} style={{ background: c }} aria-label={`Use color ${c}`} aria-pressed={p.color === c} onClick={() => setP({ ...p, color: c })} />
+              ))}
+            </span>
           </label>
           <label>
             Start date
@@ -141,9 +153,14 @@ export function ProjectForm({
             </label>
           )}
         </div>
-        <button className="btn primary" disabled={save.isPending}>
-          Save
-        </button>
+        <div className="btn-row">
+          <button className="btn primary" disabled={save.isPending}>
+            {save.isPending ? "Saving…" : project ? "Save" : "Create project"}
+          </button>
+          <button type="button" className="btn" onClick={() => onClose()}>
+            Cancel
+          </button>
+        </div>
         <ErrorNote error={save.error} />
       </form>
     </Modal>
@@ -162,11 +179,17 @@ export function Projects() {
   // ?stage=planning etc. (linked from the overview); no stage = everything not yet complete.
   const [params, setParams] = useSearchParams();
   const stage = params.get("stage") as ProjectStatus | "all" | null;
+  const [search, setSearch] = useState("");
 
-  const all = projects.data ?? [];
-  const rows = all.filter((p) => (stage === "all" ? true : stage ? p.status === stage : p.status !== "complete"));
   const clientsOf = (id: string) =>
     (people.data ?? []).filter((u) => u.role === "client" && u.project_members.some((m) => m.project_id === id));
+  const all = projects.data ?? [];
+  const words = search.trim().toLowerCase();
+  const inStage = (p: Project) => (stage === "all" ? true : stage ? p.status === stage : p.status !== "complete");
+  // Searching looks through every project, whatever stage is picked.
+  const rows = all.filter((p) =>
+    words ? [p.name, p.address, p.city].some((v) => v?.toLowerCase().includes(words)) || clientsOf(p.id).some((c) => `${c.full_name} ${c.email}`.toLowerCase().includes(words)) : inStage(p),
+  );
   const pending = (id: string) => (selections.data ?? []).filter((s) => s.project_id === id && s.status === "submitted").length;
 
   return (
@@ -179,27 +202,53 @@ export function Projects() {
               Statuses
             </button>
             <button className="btn primary" onClick={() => setCreating(true)}>
-              + New project
+              <Icon name="plus" size={16} /> New project
             </button>
           </div>
         )}
       </div>
-      <div className="chips filter">
+      <div className="chips filter" role="group" aria-label="Show projects">
         {([null, ...STAGES, "all"] as const).map((s) => (
-          <button key={s ?? "open"} className={`chip ${stage === s ? "on" : ""}`} onClick={() => setParams(s ? { stage: s } : {})}>
-            {s === null ? "Not complete" : s === "all" ? "All" : `${PROJECT_STAGE_LABEL[s]} (${all.filter((p) => p.status === s).length})`}
+          <button key={s ?? "open"} className={`chip ${stage === s && !words ? "on" : ""}`} aria-pressed={stage === s && !words} onClick={() => (setSearch(""), setParams(s ? { stage: s } : {}))}>
+            {s === null ? "In progress" : s === "all" ? "All" : PROJECT_STAGE_LABEL[s]}{" "}
+            <span className="chip-count">{s === null ? all.filter((p) => p.status !== "complete").length : s === "all" ? all.length : all.filter((p) => p.status === s).length}</span>
           </button>
         ))}
+        <label className="search">
+          <span className="sr-only">Search projects</span>
+          <Icon name="search" size={16} />
+          <input type="search" placeholder="Search by name, address, or client" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </label>
       </div>
+      {projects.isLoading ? (
+        <Loading rows={5} />
+      ) : rows.length === 0 ? (
+        <div className="card">
+          <Empty
+            icon="home"
+            action={
+              isOwner && !words && all.length === 0 ? (
+                <button className="btn primary" onClick={() => setCreating(true)}>
+                  Create your first project
+                </button>
+              ) : undefined
+            }
+          >
+            {words ? `No projects match "${search.trim()}".` : all.length === 0 ? "No projects yet. A project holds a job's schedule, selections, photos, files, and the clients who can see it." : "No projects in this stage."}
+          </Empty>
+        </div>
+      ) : (
       <div className="table-wrap">
-        <table className="table">
+        <table className="table stack">
           <thead>
             <tr>
               <th>Project</th>
               <th>Status</th>
               <th>Clients</th>
-              <th>Target</th>
-              <th />
+              <th>{stage === "complete" ? "Completed" : "Target"}</th>
+              <th>
+                <span className="sr-only">Needs attention</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -209,15 +258,16 @@ export function Projects() {
                   <ProjectDot color={p.color} /> <Link to={`/admin/projects/${p.id}`}>{p.name}</Link>
                   <div className="muted small">{[p.category && CATEGORY_LABEL[p.category], p.address].filter(Boolean).join(" · ")}</div>
                 </td>
-                <td>{projectStatusLabel(p, statuses.data)}</td>
-                <td>{clientsOf(p.id).map((c) => c.full_name || c.email).join(", ") || <span className="muted">—</span>}</td>
-                <td>{fmtDate(p.target_completion)}</td>
-                <td>{pending(p.id) > 0 && <span className="badge badge-submitted">{pending(p.id)} to review</span>}</td>
+                <td data-label="Status">{projectStatusLabel(p, statuses.data)}</td>
+                <td data-label="Clients">{clientsOf(p.id).map((c) => c.full_name || c.email).join(", ") || <span className="muted">None yet</span>}</td>
+                <td data-label={p.status === "complete" ? "Completed" : "Target"}>{fmtDate(p.status === "complete" ? p.completed_on : p.target_completion)}</td>
+                <td>{pending(p.id) > 0 && <Link to={`/admin/projects/${p.id}?tab=selections`} className="badge badge-submitted">{pending(p.id)} to review</Link>}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      )}
       {managing && <StatusManager onClose={() => setManaging(false)} />}
       {creating && (
         <ProjectForm

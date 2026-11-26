@@ -4,6 +4,7 @@ import { useAuth } from "./auth";
 import { Layout } from "./components/Layout";
 import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
+import { Loading } from "./components/ui";
 
 // Split the calendar and staff pages into separate downloads so clients load less.
 const named = <K extends string>(load: () => Promise<Record<K, React.ComponentType>>, name: K) =>
@@ -25,12 +26,24 @@ const AllSelections = named(() => import("./pages/admin/AllSelections"), "AllSel
 export function App() {
   const { loading, session, isStaff, isOwner } = useAuth();
 
-  if (loading) return <div className="page-loading">Loading…</div>;
+  if (loading) {
+    return (
+      <div className="page-loading" role="status">
+        Loading…
+      </div>
+    );
+  }
   if (!session) return <Login />;
 
   return (
     <Layout>
-      <Suspense fallback={<div className="page muted">Loading…</div>}>
+      <Suspense
+        fallback={
+          <div className="page">
+            <Loading rows={5} />
+          </div>
+        }
+      >
       <Routes>
         {isOwner ? (
           <>

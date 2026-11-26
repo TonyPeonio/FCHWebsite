@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as api from "../../../lib/api";
 import type { CalEvent, CalendarProject } from "../../../lib/types";
 import { ScheduleCalendar } from "../../components/ScheduleCalendar";
-import { ErrorNote, Modal, ProjectDot } from "../../components/ui";
+import { ErrorNote, Icon, Modal, ProjectDot, useToast } from "../../components/ui";
 import { allDayDate, allDayIso, byId, fmtEventWhen, useCalendarProjects, useEvents } from "../../hooks";
 import { useAuth } from "../../auth";
 
@@ -61,6 +61,7 @@ function draftFrom(ev: CalEvent | null, date?: string, allDay = true, projectId?
 export function EventEditor({ initial, projects, onClose }: { initial: Draft; projects: CalendarProject[]; onClose: () => void }) {
   const qc = useQueryClient();
   const [d, setD] = useState<Draft>(initial);
+  const toast = useToast();
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setD((prev) => ({ ...prev, [k]: v }));
   const done = () => {
     qc.invalidateQueries({ queryKey: ["events"] });
@@ -86,9 +87,18 @@ export function EventEditor({ initial, projects, onClose }: { initial: Draft; pr
         d.projectIds,
       );
     },
-    onSuccess: done,
+    onSuccess: () => {
+      toast(d.id ? "Event saved." : "Event added.");
+      done();
+    },
   });
-  const remove = useMutation({ mutationFn: () => api.deleteEvent(d.id!), onSuccess: done });
+  const remove = useMutation({
+    mutationFn: () => api.deleteEvent(d.id!),
+    onSuccess: () => {
+      toast("Event deleted.");
+      done();
+    },
+  });
 
 
   function toggleProject(id: string) {
@@ -105,11 +115,11 @@ export function EventEditor({ initial, projects, onClose }: { initial: Draft; pr
       >
         <label>
           Title
-          <input required value={d.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Framing inspection" />
+          <input required autoFocus={!d.id} value={d.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Framing inspection" />
         </label>
 
         <fieldset>
-          <legend>Projects (tags)</legend>
+          <legend>Which projects is this for?</legend>
           <div className="chips">
             {projects.map((p) => (
               <label key={p.id} className={`chip ${d.projectIds.includes(p.id) ? "on" : ""}`}>
@@ -118,9 +128,9 @@ export function EventEditor({ initial, projects, onClose }: { initial: Draft; pr
               </label>
             ))}
           </div>
-          <small className="muted">
-            Clients on a tagged project see this event. Leave all unchecked for a company-only event.
-          </small>
+          <span className="hint">
+            {projects.length === 0 ? "No projects yet. " : ""}Clients on a chosen project see this event. Choose none for a company-only event.
+          </span>
         </fieldset>
 
         <label className="check">
@@ -157,13 +167,16 @@ export function EventEditor({ initial, projects, onClose }: { initial: Draft; pr
         </label>
 
         <label className="check">
-          <input type="checkbox" checked={d.clientVisible} onChange={(e) => set("clientVisible", e.target.checked)} /> Visible to clients
+          <input type="checkbox" checked={d.clientVisible} onChange={(e) => set("clientVisible", e.target.checked)} /> Let clients see this event
         </label>
-        {!d.clientVisible && <p className="muted small">Staff-only: shown with a dark outline and hidden from every client.</p>}
+        {!d.clientVisible && <p className="muted small">Staff only: shown with a dashed outline on the calendar and hidden from every client.</p>}
 
         <div className="btn-row">
           <button className="btn primary" disabled={save.isPending}>
-            {save.isPending ? "Saving…" : "Save"}
+            {save.isPending ? "Saving…" : d.id ? "Save" : "Add event"}
+          </button>
+          <button type="button" className="btn" onClick={onClose}>
+            Cancel
           </button>
           {d.id && (
             <button type="button" className="btn danger" disabled={remove.isPending} onClick={() => confirm("Delete this event?") && remove.mutate()}>
@@ -220,28 +233,33 @@ export function MasterCalendar() {
         <h1>Master calendar</h1>
         {isOwner && (
           <button className="btn primary" onClick={() => setEditing(draftFrom(null))}>
-            + New event
+            <Icon name="plus" size={16} /> New event
           </button>
         )}
       </div>
-      <div className="chips filter">
+      <p className="lead">
+        {isOwner
+          ? "Click a day to add an event, click an event to edit it, or drag it to reschedule. Dashed events are staff only."
+          : "View only. Click an event for details."}
+      </p>
+      <div className="chips filter" role="group" aria-label="Projects shown on the calendar">
         {projects.data?.map((p) => (
-          <button key={p.id} className={`chip ${hidden.has(p.id) ? "" : "on"}`} onClick={() => toggle(p.id)}>
+          <button key={p.id} className={`chip toggle ${hidden.has(p.id) ? "" : "on"}`} aria-pressed={!hidden.has(p.id)} title={hidden.has(p.id) ? "Hidden: click to show" : "Shown: click to hide"} onClick={() => toggle(p.id)}>
             <ProjectDot color={p.color} /> {p.name}
           </button>
         ))}
-        <button className={`chip ${hidden.has("none") ? "" : "on"}`} onClick={() => toggle("none")}>
-          <ProjectDot color="#999" /> Untagged
+        <button className={`chip toggle ${hidden.has("none") ? "" : "on"}`} aria-pressed={!hidden.has("none")} onClick={() => toggle("none")}>
+          <ProjectDot color="#999" /> Company (no project)
         </button>
         <label className="check inline">
-          <input type="checkbox" checked={showInternal} onChange={(e) => setShowInternal(e.target.checked)} /> Show staff-only
+          <input type="checkbox" checked={showInternal} onChange={(e) => setShowInternal(e.target.checked)} /> Show staff-only events
         </label>
+        {hidden.size > 0 && (
+          <button className="link-btn small" onClick={() => setHidden(new Set())}>
+            Show all
+          </button>
+        )}
       </div>
-      <p className="muted small">
-        {isOwner
-          ? "Click a day to add an event, click an event to edit it, or drag it to reschedule."
-          : "View only. Click an event for details."}
-      </p>
 
       <ScheduleCalendar
         events={visible}

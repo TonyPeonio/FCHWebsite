@@ -126,9 +126,19 @@ npm run dev                    # http://localhost:5173 (portal at /app/)
 free projects pause after a week without activity, so move to Pro ($25/mo, includes daily backups)
 once clients are using it.
 
-**Photo storage:** photos go in Cloudflare R2, shrunk to at most 1.5 MB each (usually a few hundred
-KB) plus a small thumbnail. R2 includes 10 GB free, then about $0.015 per GB per month, with no
-download fees. The overview's *Space used* card shows files and database against limits you set.
+**Photo storage:** photos go in Cloudflare R2, shrunk to 2400 px on the long side (usually a few
+hundred KB, at most about 2 MB) plus a small thumbnail. R2 includes 10 GB free, then about $0.015
+per GB per month, with no download fees. The overview's *Space used* card shows files and database
+against limits you set.
+
+**Uploading photos:** on a project's *Photos & files* tab, drop files anywhere on the page, paste a
+copied photo, or press *Choose photos or files* (on a phone this opens the photo library, albums
+included). Uploads go three at a time with a progress bar; any that fail stay selected to retry.
+iPhone HEIC photos (e.g. dragged from iCloud on a PC) are turned into JPEGs first, so every browser
+can show them. The shrinking is in `src/lib/images.ts` (fast, one pass) with
+`browser-image-compression` as the fallback. *Select several* changes many photos at once (show to
+client, show on website, delete); clicking a photo opens it full screen, where its caption can be
+edited.
 
 **Moving files from Supabase Storage (one time):** the `copy-files-to-r2` function copies every
 stored file into R2 under the same paths, using the R2 secrets already in Supabase; the comment at
@@ -144,9 +154,16 @@ already copied, so it's safe to run again; it never deletes anything from Supaba
 - **Our Work photos** come from the portal, not from files in this repo:
   1. Upload photos on the project's *Photos & files* tab (works from a phone).
   2. Give the project a build type and city, then press *Mark completed*.
-  3. On the project's *Photos & files* tab, press *Show on website* on the photos to show.
+  3. On the project's *Photos & files* tab, press *Show on website* on the photos to show (or
+     *Select several* to add many at once; new uploads can be ticked *Also show on the website*).
   The front page lists each build type that has such photos, then projects as `City-Month-Year` (e.g. `Kalama-January-2025`)
   (served by the `public-gallery` function; changes appear within a minute).
+
+## Accessibility
+Both the website and the portal are built to be usable by keyboard and screen reader: a "Skip to
+content" link, visible focus rings, labelled controls, announced status messages, text contrast of
+at least 4.5:1, and no motion for people who ask their device to reduce it. When adding to either,
+keep new text on the existing colour variables and give every control a label.
 
 ## Demo for prospective customers
 A sample copy of the website and portal with made-up projects, clients, and illustrated photos, at

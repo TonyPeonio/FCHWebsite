@@ -78,6 +78,10 @@ select throws_ok(
      values ('10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001/uploads/c.pdf', 'c.pdf', 'contract') $$,
   '42501', null, 'Clients cannot upload "contract" documents');
 select throws_ok(
+  $$ insert into documents (project_id, storage_path, file_name, kind, show_on_website)
+     values ('10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001/uploads/pub.jpg', 'pub.jpg', 'photo', true) $$,
+  '42501', null, 'Clients cannot upload a photo straight onto the public website');
+select throws_ok(
   $$ insert into storage.objects (bucket_id, name) values ('project-files', '10000000-0000-0000-0000-000000000002/uploads/x.pdf') $$,
   '42501', null, 'Storage: Smith cannot upload into the Jones folder');
 

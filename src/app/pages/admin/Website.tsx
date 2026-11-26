@@ -1,8 +1,8 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type MouseEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as api from "../../../lib/api";
 import { DAYS, SITE_PHOTOS, type Faq, type Review, type SiteContent, type SitePhoto } from "../../../lib/siteContent";
-import { DropZone, ErrorNote } from "../../components/ui";
+import { DropZone, ErrorNote, Icon, Loading, useToast } from "../../components/ui";
 import { useSignedUrls, useSiteContent } from "../../hooks";
 
 type TextKey = Exclude<keyof SiteContent, "hours" | "photos" | "reviews" | "faq">;
@@ -25,21 +25,31 @@ export function Website() {
   const saved = useSiteContent();
   const [draft, setDraft] = useState<SiteContent | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const toast = useToast();
   useEffect(() => {
     if (saved.data && !draft) setDraft(saved.data);
   }, [saved.data, draft]);
+  const unsaved = !!draft && !!saved.data && !sameText(draft, saved.data);
+  // Closing or reloading the tab with unsaved changes asks first.
+  useEffect(() => {
+    if (!unsaved) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [unsaved]);
 
   const save = useMutation({
     // Photos are saved as soon as they're uploaded, so keep whatever is saved for them now.
     mutationFn: (d: SiteContent) => api.saveSiteContent({ ...d, photos: saved.data?.photos ?? {} }),
     onSuccess: () => {
       setNotice("Saved. The website shows the changes within about a minute.");
+      toast("Website saved.");
       qc.invalidateQueries({ queryKey: ["site-content"] });
     },
   });
 
   if (!draft || !saved.data) {
-    return <div className="page">{saved.error ? <ErrorNote error={saved.error} /> : "Loading…"}</div>;
+    return <div className="page">{saved.error ? <ErrorNote error={saved.error} /> : <Loading rows={6} />}</div>;
   }
   const dirty = !sameText(draft, saved.data);
   const set = (patch: Partial<SiteContent>) => {
@@ -58,13 +68,21 @@ export function Website() {
       <div className="title-row">
         <h1>Website</h1>
         <a className="btn" href={import.meta.env.BASE_URL} target="_blank" rel="noopener">
-          View website
+          <Icon name="external" size={16} /> View website
         </a>
       </div>
-      <p className="muted small">
-        Edit what visitors see on the home page. Text, hours, and contact details are saved when you press Save; photos are saved
-        as soon as they upload.
+      <p className="lead">
+        Edit what visitors see on the home page. Press <strong>Save changes</strong> at the bottom when you're done; photos save on their own as soon as they
+        upload. The Our Work photos come from each completed project's Photos & files tab.
       </p>
+      <nav className="section-nav" aria-label="Jump to a section">
+        <a href="#hours" onClick={jump}>Hours</a>
+        <a href="#contact" onClick={jump}>Contact details</a>
+        <a href="#text" onClick={jump}>Text</a>
+        <a href="#reviews" onClick={jump}>Reviews</a>
+        <a href="#faq" onClick={jump}>FAQ</a>
+        <a href="#photos" onClick={jump}>Photos</a>
+      </nav>
 
       <form
         onSubmit={(e: FormEvent) => {
@@ -72,7 +90,7 @@ export function Website() {
           if (!problem) save.mutate(draft);
         }}
       >
-        <section className="card">
+        <section className="card" id="hours">
           <h2>Hours</h2>
           <div className="hours-grid">
             {DAYS.map((day, i) => (
@@ -90,7 +108,7 @@ export function Website() {
           </div>
         </section>
 
-        <section className="card">
+        <section className="card" id="contact">
           <h2>Contact details</h2>
           <div className="grid-2 tight">
             <label>
@@ -112,7 +130,7 @@ export function Website() {
           </p>
         </section>
 
-        <section className="card">
+        <section className="card" id="text">
           <h2>Text</h2>
           {TEXT_FIELDS.map((f) => (
             <label key={f.key}>
@@ -126,7 +144,7 @@ export function Website() {
           ))}
         </section>
 
-        <section className="card">
+        <section className="card" id="reviews">
           <h2>Reviews</h2>
           <p className="muted small">Shown in this order. Remove them all to hide the reviews section.</p>
           {draft.reviews.map((r, i) => {
@@ -175,7 +193,7 @@ export function Website() {
           </button>
         </section>
 
-        <section className="card">
+        <section className="card" id="faq">
           <h2>Frequently asked questions</h2>
           {draft.faq.map((f, i) => {
             const update = (patch: Partial<Faq>) => set({ faq: draft.faq.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
@@ -204,17 +222,28 @@ export function Website() {
             {save.isPending ? "Saving…" : "Save changes"}
           </button>
           {dirty && (
-            <button type="button" className="link-btn small" onClick={() => setDraft(saved.data)}>
-              Undo changes
-            </button>
+            <>
+              <span className="unsaved">You have unsaved changes</span>
+              <button type="button" className="link-btn small" onClick={() => confirm("Undo everything you've changed since the last save?") && setDraft(saved.data)}>
+                Undo changes
+              </button>
+            </>
           )}
-          {dirty && problem && <span className="notice error">{problem}</span>}
-          {notice && !dirty && <span className="notice ok">{notice}</span>}
+          {dirty && problem && (
+            <span className="notice error" role="alert">
+              {problem}
+            </span>
+          )}
+          {notice && !dirty && (
+            <span className="notice ok" role="status">
+              {notice}
+            </span>
+          )}
           <ErrorNote error={save.error} />
         </div>
       </form>
 
-      <section className="card">
+      <section className="card" id="photos">
         <h2>Photos</h2>
         <div className="site-photos">
           {SITE_PHOTOS.map((p) => (
@@ -224,6 +253,14 @@ export function Website() {
       </section>
     </div>
   );
+}
+
+/** The portal's addresses live after the "#", so in-page links scroll by hand instead. */
+function jump(e: MouseEvent<HTMLAnchorElement>) {
+  e.preventDefault();
+  const target = document.getElementById(e.currentTarget.hash.slice(1));
+  target?.scrollIntoView({ behavior: "smooth", block: "start" });
+  target?.querySelector<HTMLElement>("input, textarea, select, button")?.focus({ preventScroll: true });
 }
 
 /** Move up / move down / remove for one entry in an editable list. */
@@ -264,6 +301,7 @@ function PhotoSlot({ slot }: { slot: SitePhoto }) {
   const qc = useQueryClient();
   const saved = useSiteContent();
   const info = SITE_PHOTOS.find((p) => p.key === slot)!;
+  const toast = useToast();
   const current = saved.data?.photos[slot];
   const { data: urls } = useSignedUrls("project-files", current ? [current] : []);
 
@@ -283,6 +321,7 @@ function PhotoSlot({ slot }: { slot: SitePhoto }) {
       const old = latest.photos[slot];
       if (old && old !== path) await api.removeSitePhoto(old);
     },
+    onSuccess: (_, file) => toast(file ? "Photo replaced. The website shows it within about a minute." : "Back to the original photo."),
     onSettled: () => qc.invalidateQueries({ queryKey: ["site-content"] }),
   });
 
@@ -294,7 +333,7 @@ function PhotoSlot({ slot }: { slot: SitePhoto }) {
       {src ? <img src={src} alt={`Current ${info.label} photo`} /> : <div className="img-ph" />}
       <DropZone
         multiple={false}
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/jpeg,image/png,image/webp,.heic,.heif"
         label={change.isPending ? "Uploading…" : current ? "Choose a different photo" : "Replace photo"}
         hint="Drag and drop a photo here, or"
         disabled={change.isPending}

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { FunctionsFetchError, FunctionsRelayError } from "@supabase/supabase-js";
 import * as api from "../../lib/api";
 import { clearPendingLink, linkError, pendingLink, supabase } from "../../lib/supabase";
@@ -17,6 +17,9 @@ export function Login() {
   const [message, setMessage] = useState<Message>(linkError ? { ok: false, text: linkError } : null);
 
   const address = email.trim().toLowerCase();
+  useEffect(() => {
+    document.title = "Sign in | First Choice Homes";
+  }, []);
 
   async function confirmLink() {
     setBusy(true);
@@ -86,8 +89,8 @@ export function Login() {
   return (
     <div className="auth-page">
       <form className="card auth-card" onSubmit={submit}>
-        <a href="/">
-          <img src="/images/logo.png" alt="First Choice Homes" className="auth-logo" />
+        <a href="/" title="Back to the website">
+          <img src="/images/logo.png" alt="First Choice Homes: back to the website" className="auth-logo" />
         </a>
         <h1>Client Portal</h1>
         <p className="muted">
@@ -106,6 +109,7 @@ export function Login() {
             <input
               required
               autoFocus
+              placeholder="······"
               inputMode="numeric"
               autoComplete="one-time-code"
               maxLength={12}
@@ -116,7 +120,7 @@ export function Login() {
         ) : (
           <label key="email">
             Email
-            <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input type="email" required autoFocus autoComplete="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </label>
         )}
         {mode === "password" && (
@@ -134,7 +138,11 @@ export function Login() {
         <button className="btn primary block" disabled={busy}>
           {busy ? "Please wait…" : mode === "email" ? "Email me a sign-in code" : "Sign in"}
         </button>
-        {message && <p className={message.ok ? "notice ok" : "notice error"}>{message.text}</p>}
+        {message && (
+          <p className={message.ok ? "notice ok" : "notice error"} role={message.ok ? "status" : "alert"}>
+            {message.text}
+          </p>
+        )}
         {mode === "code" && (
           <>
             <button type="button" className="link-btn" disabled={busy} onClick={resend}>
@@ -148,6 +156,9 @@ export function Login() {
         <button type="button" className="link-btn" onClick={() => switchTo(mode === "password" ? "email" : "password")}>
           {mode === "password" ? "Email me a sign-in code instead" : "Sign in with a password instead"}
         </button>
+        <p className="muted small auth-help">
+          Trouble signing in? Call us at <a href="tel:+13606732926">(360) 673-2926</a>.
+        </p>
       </form>
     </div>
   );

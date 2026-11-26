@@ -7,12 +7,12 @@ export const useCustomStatuses = () => useQuery({ queryKey: ["project-statuses"]
 export const useSiteContent = () => useQuery({ queryKey: ["site-content"], queryFn: api.fetchSiteContent });
 export const useCalendarProjects = () => useQuery({ queryKey: ["projects", "calendar"], queryFn: api.fetchCalendarProjects });
 export const useEvents = () => useQuery({ queryKey: ["events"], queryFn: api.fetchEvents });
-export const useSelections = (projectId?: string) =>
-  useQuery({ queryKey: ["selections", projectId ?? "all"], queryFn: () => api.fetchSelections(projectId) });
+export const useSelections = (projectId?: string, enabled = true) =>
+  useQuery({ queryKey: ["selections", projectId ?? "all"], queryFn: () => api.fetchSelections(projectId), enabled });
 export const useDocuments = (filter: { projectId?: string; selectionId?: string } = {}) =>
   useQuery({ queryKey: ["documents", filter], queryFn: () => api.fetchDocuments(filter) });
 export const usePeople = () => useQuery({ queryKey: ["people"], queryFn: api.fetchPeople });
-export const useQuotes = () => useQuery({ queryKey: ["quotes"], queryFn: api.fetchQuotes });
+export const useQuotes = (enabled = true) => useQuery({ queryKey: ["quotes"], queryFn: api.fetchQuotes, enabled });
 
 /** Signed URLs for a list of storage paths, refreshed before they expire. */
 export const useSignedUrls = (bucket: "project-files" | "quote-uploads", paths: string[]) =>
@@ -76,6 +76,19 @@ export function projectColor(ev: CalEvent, projects: Record<string, CalendarProj
 
 export function formatBytes(n: number | null) {
   if (!n) return "";
-  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+  if (n < 1000 * 1024) return `${Math.max(1, Math.round(n / 1024))} KB`;
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/** Whether a date-only value (YYYY-MM-DD) is before today. */
+export const isPast = (date: string | null | undefined) => !!date && date < new Date().toLocaleDateString("en-CA");
+
+/** "today", "tomorrow", "in 5 days", "3 days ago": how far off a date-only value is. */
+export function relativeDay(date: string) {
+  const today = new Date(`${new Date().toLocaleDateString("en-CA")}T12:00:00`);
+  const days = Math.round((new Date(`${date}T12:00:00`).getTime() - today.getTime()) / 864e5);
+  if (days === 0) return "today";
+  if (days === 1) return "tomorrow";
+  if (days === -1) return "yesterday";
+  return days > 0 ? `in ${days} days` : `${-days} days ago`;
 }

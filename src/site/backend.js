@@ -23,8 +23,18 @@ export async function call(name, body) {
   return data;
 }
 
-/** Uploads an inquiry attachment to the signed link quote-start handed out. */
-export async function uploadFile(url, file) {
-  const res = await fetch(url, { method: "PUT", body: file }).catch(() => null);
-  return Boolean(res?.ok);
+/**
+ * Uploads an inquiry attachment to the signed link quote-start handed out; resolves to whether it
+ * arrived. `onProgress` hears how much has been sent, from 0 to 1.
+ */
+export function uploadFile(url, file, onProgress) {
+  return new Promise((resolve) => {
+    // XMLHttpRequest rather than fetch: it's the only way to see upload progress.
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", url);
+    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress?.(e.loaded / e.total);
+    xhr.onload = () => resolve(xhr.status >= 200 && xhr.status < 300);
+    xhr.onerror = xhr.ontimeout = xhr.onabort = () => resolve(false);
+    xhr.send(file);
+  });
 }

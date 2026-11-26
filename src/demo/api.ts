@@ -224,13 +224,28 @@ export async function uploadToProject(
     caption?: string;
     selectionId?: string;
     clientVisible?: boolean;
+    showOnWebsite?: boolean;
     track?: boolean;
+    onProgress?: (fraction: number) => void;
   },
 ): Promise<string> {
   if (!isOwner() && !(isMember(opts.projectId) && opts.folder === "uploads")) throw new Error("You can't upload there");
+  // Pretend to send it, so the progress bar has something to show.
+  for (const fraction of [0.2, 0.5, 0.8, 1]) {
+    await pause(120);
+    opts.onProgress?.(fraction);
+  }
   const { path, row } = await storeFile(file, `${opts.projectId}/${opts.folder}`);
   if (opts.track !== false) {
-    addDoc({ ...row, project_id: opts.projectId, selection_id: opts.selectionId ?? null, kind: opts.kind ?? "other", caption: opts.caption || null, client_visible: opts.clientVisible ?? true });
+    addDoc({
+      ...row,
+      project_id: opts.projectId,
+      selection_id: opts.selectionId ?? null,
+      kind: opts.kind ?? "other",
+      caption: opts.caption || null,
+      client_visible: opts.clientVisible ?? true,
+      show_on_website: (isOwner() && opts.showOnWebsite) ?? false,
+    });
   }
   save();
   return path;
@@ -241,18 +256,49 @@ export interface UploadFailure {
   reason: string;
 }
 
-export async function uploadAll(files: File[], upload: (file: File) => Promise<unknown>, onEach: () => void) {
-  const failed: UploadFailure[] = [];
-  for (const file of files) {
-    try {
-      await upload(file);
-      await pause(250);
-    } catch (err) {
-      failed.push({ file, reason: err instanceof Error ? err.message : String(err) });
-    }
-    onEach();
+export class UploadsFailed extends Error {
+  constructor(public failed: UploadFailure[]) {
+    super(failed.length === 1 ? `"${failed[0].file.name}" didn't upload: ${failed[0].reason}` : `${failed.length} files didn't upload`);
   }
-  return failed;
+}
+
+export interface UploadProgress {
+  done: number;
+  total: number;
+  fraction: number;
+}
+
+/** Same as the real one: a few at a time, carrying on past failures. */
+export async function uploadAll(
+  files: File[],
+  upload: (file: File, onProgress: (fraction: number) => void) => Promise<unknown>,
+  onProgress: (progress: UploadProgress) => void = () => {},
+): Promise<UploadFailure[]> {
+  const sent = files.map(() => 0);
+  const bytes = files.reduce((sum, f) => sum + f.size, 0) || 1;
+  let done = 0;
+  const report = () => onProgress({ done, total: files.length, fraction: Math.min(1, sent.reduce((sum, f, i) => sum + f * files[i].size, 0) / bytes) });
+  const failures: (UploadFailure | null)[] = files.map(() => null);
+  let next = 0;
+  report();
+  async function worker() {
+    while (next < files.length) {
+      const i = next++;
+      try {
+        await upload(files[i], (fraction) => {
+          sent[i] = fraction;
+          report();
+        });
+      } catch (err) {
+        failures[i] = { file: files[i], reason: err instanceof Error ? err.message : String(err) };
+      }
+      sent[i] = 1;
+      done++;
+      report();
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(3, files.length) }, worker));
+  return failures.filter((f): f is UploadFailure => f !== null);
 }
 
 export async function deleteProject(id: string) {
@@ -296,6 +342,25 @@ export async function setDocumentVisibility(id: string, client_visible: boolean)
 export async function setShowOnWebsite(id: string, show_on_website: boolean) {
   requireOwner();
   Object.assign(db.documents.find((d) => d.id === id) ?? {}, { show_on_website });
+  await done(null);
+}
+
+export async function updateDocument(id: string, fields: { caption?: string | null; kind?: DocumentKind }) {
+  requireOwner();
+  Object.assign(db.documents.find((d) => d.id === id) ?? {}, fields);
+  await done(null);
+}
+
+export async function updateDocuments(ids: string[], fields: { client_visible?: boolean; show_on_website?: boolean }) {
+  requireOwner();
+  for (const d of db.documents) if (ids.includes(d.id)) Object.assign(d, fields);
+  await done(null);
+}
+
+export async function deleteDocuments(docs: Doc[]) {
+  requireOwner();
+  const ids = new Set(docs.map((d) => d.id));
+  db.documents = db.documents.filter((d) => !ids.has(d.id));
   await done(null);
 }
 
@@ -382,11 +447,16 @@ export async function createSelection(
   await done(null);
 }
 
-export async function submitSelection(sel: Selection, note: string, optionId: string | null, files: File[]) {
+export async function submitSelection(sel: Selection, note: string, optionId: string | null, files: File[], onProgress?: (progress: UploadProgress) => void) {
   const row = db.selections.find((s) => s.id === sel.id);
   if (!row || !isMember(row.project_id)) throw new Error("Only the client can submit this selection (switch to the client view).");
   if (row.status !== "requested" && row.status !== "revision_requested") throw new Error("This selection was already submitted");
-  for (const file of files) await uploadToProject(file, { projectId: row.project_id, folder: "uploads", kind: "selection", selectionId: row.id });
+  const failed = await uploadAll(
+    files,
+    (file, onFile) => uploadToProject(file, { projectId: row.project_id, folder: "uploads", kind: "selection", selectionId: row.id, onProgress: onFile }),
+    onProgress,
+  );
+  if (failed.length) throw new UploadsFailed(failed);
   Object.assign(row, { status: "submitted", client_note: note || null, chosen_option_id: optionId, submitted_at: now() });
   await done(null);
 }

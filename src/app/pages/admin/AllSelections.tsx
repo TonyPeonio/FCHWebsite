@@ -1,6 +1,6 @@
 import { Link, useSearchParams } from "react-router-dom";
 import type { Selection } from "../../../lib/types";
-import { Empty, ProjectDot, StatusBadge } from "../../components/ui";
+import { Empty, Loading, ProjectDot, StatusBadge } from "../../components/ui";
 import { byId, fmtDate, useProjects, useSelections } from "../../hooks";
 
 const waitingOnClient = (s: Selection) => s.status === "requested" || s.status === "revision_requested";
@@ -33,12 +33,11 @@ export function AllSelections() {
   return (
     <div className="page">
       <h1>Selections</h1>
-      <p className="muted">Every project's selections. To request a new one, open the project's Selections tab.</p>
-      <div className="chips filter">
+      <p className="lead">Everything clients have been asked to choose, across all projects. To request a new one, open the project and go to its Selections tab.</p>
+      <div className="chips filter" role="group" aria-label="Show selections">
         {(Object.keys(FILTERS) as Filter[]).map((f) => (
-          <button key={f} className={`chip ${show === f ? "on" : ""}`} onClick={() => setParams(f === "open" ? {} : { show: f })}>
-            {FILTERS[f].label}
-            {f !== "all" && f !== "open" && ` (${all.filter(FILTERS[f].test).length})`}
+          <button key={f} className={`chip ${show === f ? "on" : ""}`} aria-pressed={show === f} onClick={() => setParams(f === "open" ? {} : { show: f })}>
+            {FILTERS[f].label} <span className="chip-count">{all.filter(FILTERS[f].test).length}</span>
           </button>
         ))}
       </div>
@@ -66,8 +65,10 @@ export function AllSelections() {
               </li>
             ))}
           </ul>
+        ) : selections.isLoading ? (
+          <Loading rows={4} />
         ) : (
-          <Empty>{selections.isLoading ? "Loading…" : "Nothing here."}</Empty>
+          <Empty icon="list">{all.length === 0 ? "No selections yet. Request one from a project's Selections tab." : "Nothing in this list right now."}</Empty>
         )}
       </section>
     </div>

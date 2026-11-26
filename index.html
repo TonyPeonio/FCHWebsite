@@ -7,6 +7,7 @@
   <meta name="description" content="Custom home builders specializing in dream home construction and tailored home building services for your unique custom homes.">
   <link rel="canonical" href="https://firstchoicehomesllc.org/">
   <link rel="icon" type="image/png" href="images/logo.png">
+  <meta name="theme-color" content="#333333">
 
   <meta property="og:type" content="website">
   <meta property="og:title" content="First Choice Homes LLC - Custom Home Builders">
@@ -41,34 +42,47 @@
   </script>
 </head>
 <body>
+  <a href="#main" class="skip-link">Skip to content</a>
 
   <header class="site-header">
     <a href="/" class="logo-link">
-      <img src="images/logo.png" alt="First Choice Homes LLC" width="293" height="114">
+      <img src="images/logo.png" alt="First Choice Homes LLC, custom home builder" width="293" height="114">
     </a>
     <a href="/app/" class="login-link">Client Login</a>
   </header>
+  <!-- Stays at the top of the screen while scrolling. "Our Work" shows once there are projects to see. -->
+  <nav class="site-nav" aria-label="Sections of this page">
+    <a href="#about">About</a>
+    <a href="#our-work" data-nav="our-work" hidden>Our Work</a>
+    <a href="#reviews" data-nav="reviews">Reviews</a>
+    <a href="#faq">FAQ</a>
+    <a href="#contact">Contact</a>
+    <a class="nav-call" data-phone-link href="tel:+13606732926"><span class="sr-only">Call us at </span><span data-phone-text>(360) 673-2926</span></a>
+  </nav>
 
-  <main>
+  <main id="main" tabindex="-1">
     <!-- Hero (the text, photos, contact details, and hours marked data-edit/data-photo/data-edit-* are
          editable in the portal: Website page; see src/lib/siteContent.ts) -->
     <section class="hero">
       <div class="container narrow">
         <h1 data-edit="heroTitle">Custom Home Builders: Cultivating Your Dream Home</h1>
         <p data-edit="heroText">Transforming your visions into beautiful custom homes with care through our expert home building services, ensuring your dream home construction becomes a reality.</p>
-        <a href="#contact" class="btn">Send Us an Inquiry</a>
+        <div class="hero-actions">
+          <a href="#contact" class="btn">Send Us an Inquiry</a>
+          <a class="btn btn-plain" data-phone-link href="tel:+13606732926">Call <span data-phone-text>(360) 673-2926</span></a>
+        </div>
       </div>
       <div class="container">
-        <img class="hero-img" data-photo="hero" src="images/hero.jpg" alt="White farmhouse built by First Choice Homes" width="1600" height="1200">
+        <img class="hero-img" data-photo="hero" src="images/hero.jpg" alt="White farmhouse built by First Choice Homes" width="1600" height="1200" fetchpriority="high">
       </div>
     </section>
 
     <!-- Our Legacy -->
-    <section class="legacy">
+    <section class="legacy" id="about">
       <div class="container">
         <h2 class="section-title light">Building Dreams Together</h2>
         <div class="split">
-          <img data-photo="legacy" src="images/building-dreams.jpg" alt="House blueprints with rolled plans and a drafting compass" loading="lazy" width="474" height="267">
+          <img data-photo="legacy" src="images/building-dreams.jpg" alt="House blueprints with rolled plans and a drafting compass" loading="lazy" decoding="async" width="474" height="267">
           <div class="split-text">
             <h3 data-edit="legacyTitle">Our Legacy</h3>
             <p data-edit="legacyText">First Choice Homes LLC is a family owned and operated construction company with over two decades of experience in home building services. We focus on delivering small town quality in every custom home we build, ensuring your dream home construction vision becomes a reality.</p>
@@ -83,7 +97,8 @@
         <h2 class="section-title">Building Dreams: Our Work</h2>
         <div class="work-types" role="group" aria-label="Type of build"></div>
         <div class="work-projects"></div>
-        <h3 class="work-title" hidden></h3>
+        <h3 class="work-title" tabindex="-1" hidden></h3>
+        <p class="work-status" role="status" aria-live="polite"></p>
         <div class="gallery"></div>
       </div>
     </section>
@@ -91,7 +106,7 @@
     <!-- Welcome -->
     <section class="welcome">
       <div class="split">
-        <img data-photo="welcome" src="images/welcome.jpg" alt="The owners of First Choice Homes" loading="lazy" width="1053" height="1404">
+        <img data-photo="welcome" src="images/welcome.jpg" alt="The owners of First Choice Homes" loading="lazy" decoding="async" width="1053" height="1404">
         <div class="split-text">
           <h2>Welcome</h2>
           <p data-edit="welcomeText">We’re a family-owned custom home builder with 20+ years of experience. We craft homes that reflect your vision, lifestyle, and personality, treating every project with care, quality, and integrity.</p>
@@ -102,20 +117,20 @@
     </section>
 
     <!-- Reviews (editable in the portal: Website page; src/site/main.js rebuilds them from the saved list) -->
-    <section class="reviews">
+    <section class="reviews" id="reviews">
       <div class="container">
-        <h2 class="section-title light">Building Dreams, One Home at a Time</h2>
+        <h2 class="section-title">Building Dreams, One Home at a Time</h2>
         <div class="review-grid">
           <article class="review">
             <div class="avatar" aria-hidden="true">S</div>
-            <div class="stars" aria-label="5 out of 5 stars">★★★★★</div>
+            <div class="stars" role="img" aria-label="5 out of 5 stars">★★★★★</div>
             <h3>Home Renovation</h3>
             <p>“We had a full home renovation completed on a pretty tight timeline, and couldn’t be happier with how everything turned out! First Choice Homes worked with our budget without cutting corners, and their attention to detail shows in every room. Communication was clear and consistent throughout the entire process, which made what could have been stressful feel manageable.”</p>
             <footer>Steve Schreiner · 2/12/2026</footer>
           </article>
           <article class="review">
             <div class="avatar" aria-hidden="true">M</div>
-            <div class="stars" aria-label="5 out of 5 stars">★★★★★</div>
+            <div class="stars" role="img" aria-label="5 out of 5 stars">★★★★★</div>
             <h3>Pleasure</h3>
             <p>“It has been my pleasure to be a sub contractor for First Choice Homes LLC for over 17 years. Quality work, respect, friendships, craftsmanship, and family is how I would explain this company. Thanks Riley and Jessica for all your hard work!!!!”</p>
             <footer>Matt Rich · 10/11/2024</footer>
@@ -125,7 +140,7 @@
     </section>
 
     <!-- FAQ (the questions in .faq-list are editable in the portal: Website page) -->
-    <section class="faq">
+    <section class="faq" id="faq">
       <div class="container narrow">
         <h2 class="section-title">Frequently Asked Questions</h2>
         <p class="center">Please reach us at <a data-edit-email href="mailto:firstchoicehomesllc@yahoo.com">firstchoicehomesllc@yahoo.com</a> if you cannot find an answer to your question.</p>
@@ -153,9 +168,13 @@
         <div class="contact-grid">
           <form id="quote-form" class="quote-form" novalidate>
             <h3>Website Inquiry</h3>
+            <p class="form-note">Tell us about your project and we'll get back to you. Only your email is required.</p>
             <label>Name<input type="text" name="name" autocomplete="name"></label>
-            <label>Email*<input type="email" name="email" autocomplete="email" required></label>
-            <label>Phone<input type="tel" name="phone" autocomplete="tel"></label>
+            <label>Email <span class="req">(required)</span>
+              <input type="email" name="email" autocomplete="email" inputmode="email" required aria-describedby="email-error">
+            </label>
+            <p class="field-error" id="email-error" hidden></p>
+            <label>Phone<input type="tel" name="phone" autocomplete="tel" inputmode="tel"></label>
             <label>Address (Street, City, Zip Code)<input type="text" name="address" autocomplete="street-address"></label>
             <label>Project details
               <textarea name="message" rows="6" placeholder="Let us know the details of what you are looking for, including house plans and material preferences."></textarea>
@@ -163,14 +182,15 @@
             <div class="attach">
               <p class="drop-hint">Drag and drop house plans or photos here, or</p>
               <label class="attach-btn">Attach house plans or photos
-                <input type="file" name="files" multiple hidden>
+                <input type="file" name="files" multiple class="sr-only">
               </label>
-              <ul class="attach-list" aria-live="polite"></ul>
+              <ul class="attach-list" aria-live="polite" aria-label="Attached files"></ul>
               <p class="form-note">Up to 10 files, 50 MB each.</p>
             </div>
             <input type="text" name="company" class="honeypot" tabindex="-1" autocomplete="off" aria-hidden="true">
             <div id="turnstile" class="turnstile"></div>
             <button type="submit" class="btn">Send</button>
+            <progress class="send-progress" max="100" value="0" aria-label="Sending your inquiry" hidden></progress>
             <p class="form-status" role="status" aria-live="polite"></p>
           </form>
 
@@ -184,15 +204,15 @@
               <a data-edit-phone href="tel:+13606732926">(360) 673-2926</a>
             </p>
 
-            <h4>Hours</h4>
-            <table class="hours">
-              <tr><th>Mon</th><td>09:00 am – 05:00 pm</td></tr>
-              <tr><th>Tue</th><td>09:00 am – 05:00 pm</td></tr>
-              <tr><th>Wed</th><td>09:00 am – 05:00 pm</td></tr>
-              <tr><th>Thu</th><td>09:00 am – 05:00 pm</td></tr>
-              <tr><th>Fri</th><td>09:00 am – 05:00 pm</td></tr>
-              <tr><th>Sat</th><td>Closed</td></tr>
-              <tr><th>Sun</th><td>Closed</td></tr>
+            <h4 id="hours-title">Hours</h4>
+            <table class="hours" aria-labelledby="hours-title">
+              <tr><th scope="row">Mon</th><td>09:00 am – 05:00 pm</td></tr>
+              <tr><th scope="row">Tue</th><td>09:00 am – 05:00 pm</td></tr>
+              <tr><th scope="row">Wed</th><td>09:00 am – 05:00 pm</td></tr>
+              <tr><th scope="row">Thu</th><td>09:00 am – 05:00 pm</td></tr>
+              <tr><th scope="row">Fri</th><td>09:00 am – 05:00 pm</td></tr>
+              <tr><th scope="row">Sat</th><td>Closed</td></tr>
+              <tr><th scope="row">Sun</th><td>Closed</td></tr>
             </table>
           </div>
         </div>
@@ -201,6 +221,11 @@
   </main>
 
   <footer class="site-footer">
+    <p class="footer-contact">
+      <a data-edit-phone href="tel:+13606732926">(360) 673-2926</a>
+      <a data-edit-email href="mailto:firstchoicehomesllc@yahoo.com">firstchoicehomesllc@yahoo.com</a>
+      <a href="/app/" class="footer-login">Client Login</a>
+    </p>
     <p>Copyright © <span id="year">2026</span> First Choice Homes LLC - All Rights Reserved.</p>
     <p class="credit">
       Website designed &amp; built from the ground up by
@@ -208,7 +233,8 @@
     </p>
   </footer>
 
-  <dialog class="lightbox" id="lightbox">
+  <dialog class="lightbox" id="lightbox" aria-label="Project photos">
+    <p class="lb-count" aria-live="polite"></p>
     <button type="button" class="lb-close" aria-label="Close">×</button>
     <button type="button" class="lb-prev" aria-label="Previous photo">‹</button>
     <figure>

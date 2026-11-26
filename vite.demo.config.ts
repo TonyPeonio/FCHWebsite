@@ -58,7 +58,7 @@ function demoPages(): Plugin {
         }
         return html
           .replace(/<title>[^<]*<\/title>/, "<title>Website demo | First Choice Homes</title>")
-          .replace('href="/app/"', 'href="app/"')
+          .replaceAll('href="/app/"', 'href="app/"')
           .replace('href="/" class="logo-link"', 'href="./" class="logo-link"')
           .replace(/<body>/, `<body>${BANNER}`);
       },

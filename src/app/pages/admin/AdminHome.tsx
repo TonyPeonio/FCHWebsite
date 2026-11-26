@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../auth";
 import { PROJECT_STAGE_LABEL, projectStatusLabel, type CustomStatus, type Project, type ProjectStatus } from "../../../lib/types";
 import { SpaceUsed } from "../../components/SpaceUsed";
-import { Empty, ProjectDot, StatusBadge } from "../../components/ui";
+import { Empty, Loading, ProjectDot, StatusBadge } from "../../components/ui";
 import {
   byId,
   fmtDate,
@@ -33,13 +33,13 @@ export function AdminHome() {
 
   return (
     <div className="page">
-      <h1>Good {new Date().getHours() < 12 ? "morning" : "afternoon"}{profile?.full_name ? `, ${profile.full_name.split(" ")[0]}` : ""}</h1>
+      <h1>Good {new Date().getHours() < 12 ? "morning" : new Date().getHours() < 17 ? "afternoon" : "evening"}{profile?.full_name ? `, ${profile.full_name.split(" ")[0]}` : ""}</h1>
 
       <div className="stats">
-        <Link to="/admin/quotes" className="stat">
+        <Link to="/admin/quotes" className={`stat${newQuotes.length ? " hot" : ""}`}>
           <strong>{newQuotes.length}</strong> new {newQuotes.length === 1 ? "inquiry" : "inquiries"}
         </Link>
-        <Link to="/admin/selections?show=review" className="stat">
+        <Link to="/admin/selections?show=review" className={`stat${toReview.length ? " hot" : ""}`}>
           <strong>{toReview.length}</strong> selection{toReview.length === 1 ? "" : "s"} to review
         </Link>
         <Link to="/admin/selections?show=waiting" className="stat">
@@ -59,7 +59,9 @@ export function AdminHome() {
             <h2>Next up</h2>
             <Link to="/admin/calendar">Calendar →</Link>
           </div>
-          {upcoming(events.data, 10).length ? (
+          {events.isLoading ? (
+            <Loading />
+          ) : upcoming(events.data, 10).length ? (
             <ul className="rows">
               {upcoming(events.data, 10).map((e) => (
                 <li key={e.id}>
@@ -72,7 +74,9 @@ export function AdminHome() {
               ))}
             </ul>
           ) : (
-            <Empty>Nothing scheduled.</Empty>
+            <Empty>
+              Nothing scheduled. <Link to="/admin/calendar">Add an event on the calendar</Link>.
+            </Empty>
           )}
         </section>
 
@@ -81,7 +85,9 @@ export function AdminHome() {
             <h2>Selections needing attention</h2>
             <Link to="/admin/selections">Selections →</Link>
           </div>
-          {[...toReview, ...overdue].length ? (
+          {selections.isLoading ? (
+            <Loading />
+          ) : [...toReview, ...overdue].length ? (
             <ul className="rows">
               {[...toReview, ...overdue].map((s) => (
                 <li key={s.id}>
@@ -90,14 +96,14 @@ export function AdminHome() {
                     <small className="muted"> {projectMap[s.project_id]?.name}</small>
                   </span>
                   <span>
-                    {s.status !== "submitted" && s.due_date && <small>Due {fmtDate(s.due_date)} </small>}
+                    {s.status !== "submitted" && s.due_date && <small className="overdue">Due {fmtDate(s.due_date)} </small>}
                     <StatusBadge status={s.status} />
                   </span>
                 </li>
               ))}
             </ul>
           ) : (
-            <Empty>All caught up.</Empty>
+            <Empty>All caught up: nothing to review and nothing overdue.</Empty>
           )}
         </section>
 

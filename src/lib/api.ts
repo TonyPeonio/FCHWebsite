@@ -1,6 +1,7 @@
 import imageCompression from "browser-image-compression";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
+import { fastJpeg } from "./images";
 import { withDefaults, type SiteContent } from "./siteContent";
 import type {
   CalendarProject,
@@ -131,33 +132,67 @@ const MAX_FILE_BYTES = 50 * 1024 * 1024;
 type FileArea = "project-files" | "quote-uploads";
 const files = <T = unknown>(body: Record<string, unknown>) => callFunction<T>("files", body);
 
-async function putFile(url: string, body: Blob, contentType: string) {
-  const res = await fetch(url, { method: "PUT", body, headers: contentType ? { "Content-Type": contentType } : {} });
-  if (!res.ok) throw new Error(`The upload failed (${res.status})`);
+/** Sends a file to its upload link, reporting how much has gone (0 to 1) as it goes. */
+function putFile(url: string, body: Blob, contentType: string, onProgress?: (fraction: number) => void, timeoutMs = 0) {
+  return new Promise<void>((resolve, reject) => {
+    // XMLHttpRequest rather than fetch: it's the only way to see upload progress.
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", url);
+    if (contentType) xhr.setRequestHeader("Content-Type", contentType);
+    xhr.timeout = timeoutMs;
+    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress?.(e.loaded / e.total);
+    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`The upload failed (${xhr.status})`)));
+    xhr.onerror = () => reject(new Error("The upload failed. Check your connection and try again"));
+    xhr.ontimeout = () => reject(new Error("The upload took too long. Check your connection and try again"));
+    xhr.send(body);
+  });
 }
 
 const removeFiles = (paths: string[]) => (paths.length ? files({ action: "delete", paths }) : Promise.resolve());
-
-/** Rejects if `promise` hasn't settled in time: a stalled phone upload would otherwise wait forever. */
-function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
-  return Promise.race([promise, new Promise<never>((_, reject) => setTimeout(() => reject(new Error(message)), ms))]);
-}
 
 /**
  * Resizes an image, or gives null on any trouble or after 20 s so callers can fall back.
  * No web worker: the library's worker loads a script from a CDN and never reports it if the worker
  * dies, which left phone uploads stuck on "Uploading…" forever.
  */
-function resize(file: File, maxSizeMB: number, maxWidthOrHeight: number, fileType?: string): Promise<Blob | null> {
+function resize(file: File, maxSizeMB: number, maxWidthOrHeight: number, fileType?: string, onProgress?: (percent: number) => void): Promise<Blob | null> {
   const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 20_000));
-  const out = imageCompression(file, { maxSizeMB, maxWidthOrHeight, useWebWorker: false, fileType }).catch(() => null);
+  const out = imageCompression(file, { maxSizeMB, maxWidthOrHeight, useWebWorker: false, fileType, onProgress }).catch(() => null);
   return Promise.race([out, timeout]);
 }
 
+const isHeic = (file: File) => /^image\/hei[cf]/.test(file.type) || /\.hei[cf]$/i.test(file.name);
+
+/**
+ * iPhone photos saved as HEIC (e.g. from iCloud on a PC) can't be shown by most browsers, so they're
+ * turned into JPEGs first. The converter is only downloaded when one turns up; on any trouble the
+ * original goes up unchanged, as before.
+ */
+async function heicToJpeg(file: File): Promise<File> {
+  if (!isHeic(file)) return file;
+  try {
+    const { heicTo } = await import("heic-to");
+    const blob = await Promise.race([
+      heicTo({ blob: file, type: "image/jpeg", quality: 0.9 }),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 30_000)),
+    ]);
+    return new File([blob], file.name.replace(/\.hei[cf]$/i, "") + ".jpg", { type: "image/jpeg" });
+  } catch {
+    return file;
+  }
+}
+
 /** Shrinks big photos before upload; otherwise uploads the original (the bucket takes 50 MB). */
-async function shrinkIfImage(file: File): Promise<File> {
+async function shrinkIfImage(file: File, onProgress?: (percent: number) => void): Promise<File> {
   if (!SHRINKABLE.includes(file.type) || file.size < 1_000_000) return file;
-  const out = await resize(file, 1.5, 2400);
+  // Photos (JPEGs) take the quick route; PNG and WebP keep their format, so go the slower way.
+  if (file.type === "image/jpeg") {
+    let quick = await fastJpeg(file, 2400, 0.85);
+    // Unusually detailed photos come out big at that quality, so those get a second, firmer pass.
+    if (quick && quick.size > 2_000_000) quick = (await fastJpeg(file, 2400, 0.7)) ?? quick;
+    if (quick && quick.size < file.size) return new File([quick], file.name, { type: "image/jpeg" });
+  }
+  const out = await resize(file, 1.5, 2400, undefined, onProgress);
   return out ? new File([out], file.name, { type: out.type }) : file;
 }
 
@@ -165,16 +200,20 @@ async function shrinkIfImage(file: File): Promise<File> {
  * Uploads a file under `folder`, plus a small thumbnail for photos so grids load quickly on phones.
  * HEIC and other formats many browsers can't decode go up as they are, without a thumbnail.
  */
-async function storeFile(file: File, folder: string) {
-  const upload = await shrinkIfImage(file);
+async function storeFile(original: File, folder: string, onProgress?: (fraction: number) => void) {
+  // Getting a photo ready (converting, shrinking) is the first part of the bar; sending it is the rest.
+  const PREPARED = 0.15;
+  const file = await heicToJpeg(original);
+  const upload = await shrinkIfImage(file, (percent) => onProgress?.((percent / 100) * PREPARED * 0.9));
   // Checked here so a phone doesn't spend minutes sending a file the server will refuse.
   if (upload.size > MAX_FILE_BYTES) throw new Error("It's larger than 50 MB");
-  const thumb = SHRINKABLE.includes(upload.type) ? await resize(upload, 0.06, 480, "image/jpeg") : null;
+  const thumb = SHRINKABLE.includes(upload.type) ? ((await fastJpeg(upload, 480, 0.72)) ?? (await resize(upload, 0.06, 480, "image/jpeg"))) : null;
   const id = crypto.randomUUID();
   const path = `${folder}/${id}-${safeName(file.name)}`;
   let thumbPath: string | null = thumb ? `${folder}/thumbs/${id}.jpg` : null;
   const { urls } = await files<{ urls: Record<string, string> }>({ action: "upload", paths: [path, ...(thumbPath ? [thumbPath] : [])] });
-  await withTimeout(putFile(urls[path], upload, upload.type), UPLOAD_TIMEOUT_MS, "The upload took too long. Check your connection and try again");
+  onProgress?.(PREPARED);
+  await putFile(urls[path], upload, upload.type, (f) => onProgress?.(PREPARED + f * (0.97 - PREPARED)), UPLOAD_TIMEOUT_MS);
   if (thumb && thumbPath) {
     // Without a thumbnail the grid just shows the full photo.
     await putFile(urls[thumbPath], thumb, "image/jpeg").catch(() => (thumbPath = null));
@@ -198,12 +237,13 @@ export async function saveSiteContent(content: SiteContent) {
 /** Uploads a replacement home-page photo under site/ and returns its path. */
 export async function uploadSitePhoto(file: File): Promise<string> {
   // The website shows it as-is, so it must be a format every browser can display.
+  file = await heicToJpeg(file);
   if (!SHRINKABLE.includes(file.type)) throw new Error("Use a JPG, PNG, or WebP photo");
   const upload = await shrinkIfImage(file);
   if (upload.size > MAX_FILE_BYTES) throw new Error("It's larger than 50 MB");
   const path = `site/${crypto.randomUUID()}-${safeName(file.name)}`;
   const { urls } = await files<{ urls: Record<string, string> }>({ action: "upload", paths: [path] });
-  await withTimeout(putFile(urls[path], upload, upload.type), UPLOAD_TIMEOUT_MS, "The upload took too long. Check your connection and try again");
+  await putFile(urls[path], upload, upload.type, undefined, UPLOAD_TIMEOUT_MS);
   return path;
 }
 
@@ -221,10 +261,13 @@ export async function uploadToProject(
     caption?: string;
     selectionId?: string;
     clientVisible?: boolean;
+    /** Owner, completed projects: put the photo in the website's Our Work gallery straight away. */
+    showOnWebsite?: boolean;
     track?: boolean; // insert a documents row (false for selection option images)
+    onProgress?: (fraction: number) => void;
   },
 ): Promise<string> {
-  const { path, row, discard } = await storeFile(file, `${opts.projectId}/${opts.folder}`);
+  const { path, row, discard } = await storeFile(file, `${opts.projectId}/${opts.folder}`, opts.onProgress);
 
   if (opts.track !== false) {
     const { error } = await supabase.from("documents").insert({
@@ -234,6 +277,7 @@ export async function uploadToProject(
       kind: opts.kind ?? "other",
       caption: opts.caption || null,
       client_visible: opts.clientVisible ?? true,
+      show_on_website: opts.showOnWebsite ?? false,
     });
     if (error) {
       await discard();
@@ -248,18 +292,56 @@ export interface UploadFailure {
   reason: string;
 }
 
-/** Uploads files one at a time, carrying on past any that fail; returns the failures and why. */
-export async function uploadAll(files: File[], upload: (file: File) => Promise<unknown>, onEach: () => void) {
-  const failed: UploadFailure[] = [];
-  for (const file of files) {
-    try {
-      await upload(file);
-    } catch (err) {
-      failed.push({ file, reason: err instanceof Error ? err.message : String(err) });
-    }
-    onEach();
+/** Thrown when some attachments didn't upload; `failed` says which, so only those need retrying. */
+export class UploadsFailed extends Error {
+  constructor(public failed: UploadFailure[]) {
+    super(failed.length === 1 ? `"${failed[0].file.name}" didn't upload: ${failed[0].reason}` : `${failed.length} files didn't upload`);
   }
-  return failed;
+}
+
+/** How a batch of uploads is going: files finished, and the share of all the bytes sent (0 to 1). */
+export interface UploadProgress {
+  done: number;
+  total: number;
+  fraction: number;
+}
+
+const UPLOADS_AT_ONCE = 3;
+
+/**
+ * Uploads files a few at a time, carrying on past any that fail; returns the failures (in the
+ * order the files were given) and why.
+ */
+export async function uploadAll(
+  files: File[],
+  upload: (file: File, onProgress: (fraction: number) => void) => Promise<unknown>,
+  onProgress: (progress: UploadProgress) => void = () => {},
+): Promise<UploadFailure[]> {
+  const sent = files.map(() => 0);
+  const bytes = files.reduce((sum, f) => sum + f.size, 0) || 1;
+  let done = 0;
+  const report = () => onProgress({ done, total: files.length, fraction: Math.min(1, sent.reduce((sum, f, i) => sum + f * files[i].size, 0) / bytes) });
+  const failures: (UploadFailure | null)[] = files.map(() => null);
+  let next = 0;
+  report();
+  async function worker() {
+    while (next < files.length) {
+      const i = next++;
+      try {
+        await upload(files[i], (fraction) => {
+          sent[i] = fraction;
+          report();
+        });
+      } catch (err) {
+        failures[i] = { file: files[i], reason: err instanceof Error ? err.message : String(err) };
+      }
+      sent[i] = 1;
+      done++;
+      report();
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(UPLOADS_AT_ONCE, files.length) }, worker));
+  return failures.filter((f): f is UploadFailure => f !== null);
 }
 
 /**
@@ -292,6 +374,22 @@ export async function setDocumentVisibility(id: string, client_visible: boolean)
 
 export async function setShowOnWebsite(id: string, show_on_website: boolean) {
   check(await supabase.from("documents").update({ show_on_website }).eq("id", id));
+}
+
+/** Owner: change a file's caption or which group (Photos, Plans, ...) it's filed under. */
+export async function updateDocument(id: string, fields: { caption?: string | null; kind?: DocumentKind }) {
+  check(await supabase.from("documents").update(fields).eq("id", id));
+}
+
+/** Owner: the same change to many files at once (e.g. put a whole selection of photos on the website). */
+export async function updateDocuments(ids: string[], fields: { client_visible?: boolean; show_on_website?: boolean }) {
+  if (ids.length) check(await supabase.from("documents").update(fields).in("id", ids));
+}
+
+export async function deleteDocuments(docs: Doc[]) {
+  if (!docs.length) return;
+  check(await supabase.from("documents").delete().in("id", docs.map((d) => d.id)));
+  await removeFiles(docs.flatMap((d) => [d.storage_path, ...(d.thumb_path ? [d.thumb_path] : [])]));
 }
 
 /** Returns a map of storage path -> download link good for an hour (only paths the caller may see). */
@@ -353,10 +451,20 @@ export async function createSelection(
   await callFunction("notify", { type: "selection_requested", selectionId: sel.id }).catch(console.error);
 }
 
-export async function submitSelection(sel: Selection, note: string, optionId: string | null, files: File[]) {
-  for (const file of files) {
-    await uploadToProject(file, { projectId: sel.project_id, folder: "uploads", kind: "selection", selectionId: sel.id });
-  }
+export async function submitSelection(
+  sel: Selection,
+  note: string,
+  optionId: string | null,
+  files: File[],
+  onProgress?: (progress: UploadProgress) => void,
+) {
+  const failed = await uploadAll(
+    files,
+    (file, onFile) => uploadToProject(file, { projectId: sel.project_id, folder: "uploads", kind: "selection", selectionId: sel.id, onProgress: onFile }),
+    onProgress,
+  );
+  // Nothing is submitted unless every attachment arrived; the ones that did are already saved.
+  if (failed.length) throw new UploadsFailed(failed);
   check(await supabase.rpc("submit_selection", { p_selection_id: sel.id, p_note: note, p_option_id: optionId }));
   await callFunction("notify", { type: "selection_submitted", selectionId: sel.id }).catch(console.error);
 }
